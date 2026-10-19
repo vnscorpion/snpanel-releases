@@ -4,6 +4,8 @@ Tiếng Việt trước, English below.
 
 ## v2.0.0
 
+Phát hành 19/10/2026 / Released 2026-10-19.
+
 SNPanel 2.0.0 là bản lớn đầu tiên sau 1.1.0 (27/09/2026). Bản này gom hơn
 năm mươi pull request (#22–#77).
 
@@ -46,6 +48,9 @@ Mỗi bản phát hành là một gói dựng sẵn, có kèm `SHA256SUMS`.
   - mặc định chỉ ở 127.0.0.1:7080;
   - có chế độ công khai với danh sách IP được phép.
 - Quay lại nginx hoặc Apache bằng cùng lệnh `snpanel build all`.
+- Qua SSH: `snpanel build live` (ai đang trả 80/443, giấy phép, watchdog,
+  WebAdmin), `snpanel build switch apache|litespeed` và
+  `snpanel build license-check`.
 - PHP: lsphp từ Remi; mỗi tên miền chọn một phiên bản PHP riêng (suEXEC).
 - Thêm LSCache, throttling, chỉ thị Apache tuỳ chỉnh và giới hạn lsphp.
 - Hướng dẫn: [docs/litespeed.vi.md](docs/litespeed.vi.md).
@@ -195,6 +200,9 @@ Mỗi bản phát hành là một gói dựng sẵn, có kèm `SHA256SUMS`.
   - loopback-only by default (127.0.0.1:7080);
   - an optional public mode with an allow list.
 - Return to nginx or Apache with the same `snpanel build all`.
+- Over SSH: `snpanel build live` (who answers 80/443, the licence, the
+  watchdog, WebAdmin), `snpanel build switch apache|litespeed` and
+  `snpanel build license-check`.
 - PHP: Remi lsphp, and a PHP version per domain (suEXEC).
 - LSCache, throttling, custom Apache directives and lsphp limits.
 - Guide: [docs/litespeed.md](docs/litespeed.md).
