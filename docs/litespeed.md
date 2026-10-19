@@ -12,7 +12,7 @@ DirectAdmin's CustomBuild:
 - The watchdog moves the sites back once LiteSpeed is healthy again.
 
 Everything below runs as root over SSH. The panel's
-**Settings › Web Server & PHP** page does the same things with buttons.
+**Server › Web server & PHP** page does the same things with buttons.
 
 ## Before you start
 
@@ -264,3 +264,8 @@ snpanel build all --remove-litespeed --wait   # the same, and LiteSpeed and Apac
 | `lsws_auto_return` | `yes` or `no` |
 | `lsws_admin` | `local` or `public` |
 | `lsws_admin_allow` | addresses or CIDR networks, comma-separated; empty allows every address |
+
+`build.conf` also holds `harden_userns`, root's choice about user namespaces,
+which `snpanel build set` does not change. Every `snpanel build` command and
+option, and the host hardening, are in
+[commands.md](commands.md#6-web-stack-snpanel-build).

@@ -11,7 +11,7 @@ DirectAdmin:
   site sang Apache trong vài giây.
 - LiteSpeed ổn trở lại thì watchdog đưa các site về LiteSpeed.
 
-Mọi lệnh dưới đây chạy bằng root qua SSH. Trang **Cài đặt › Web Server & PHP**
+Mọi lệnh dưới đây chạy bằng root qua SSH. Trang **Máy chủ › Máy chủ web & PHP**
 của panel làm được những việc này bằng nút bấm.
 
 ## Trước khi bắt đầu
@@ -260,3 +260,7 @@ snpanel build all --remove-litespeed --wait   # như trên, và gỡ luôn LiteS
 | `lsws_auto_return` | `yes` hoặc `no` |
 | `lsws_admin` | `local` hoặc `public` |
 | `lsws_admin_allow` | địa chỉ hoặc dải CIDR, cách nhau bằng dấu phẩy; để trống là cho mọi địa chỉ |
+
+`build.conf` còn có `harden_userns`, lựa chọn của root về user namespace, mà
+`snpanel build set` không đổi. Mọi lệnh và tuỳ chọn của `snpanel build`, cùng
+phần siết máy chủ, nằm ở [commands.vi.md](commands.vi.md#muc-6).
