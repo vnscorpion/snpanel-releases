@@ -31,14 +31,14 @@ one.
 
 ### Operating systems
 
-| System | Status in v2.0.0 | Web stack |
+| System | Status | Web stack |
 |---|---|---|
 | **AlmaLinux 10** | **Primary.** Tested the most; everything is supported. | nginx after the install; `snpanel build` moves it to LiteSpeed Enterprise (Apache as the standby) or to Apache alone, and back |
 | Rocky Linux 10, RHEL 10 | Accepted by the installer and by `snpanel build`, but not tested like AlmaLinux. | as AlmaLinux |
 | Oracle Linux 10, CentOS Stream 10 | Accepted by the installer, untested. `snpanel build` refuses them. | nginx |
-| **Debian 13** | **In progress.** Installs and runs with nginx. `snpanel build` refuses Debian and Ubuntu in v2.0.0 ("Debian and Ubuntu come later"). | nginx |
-| Ubuntu 24.04 LTS | Installs and runs with nginx; tested less than AlmaLinux. `snpanel build` refuses it. | nginx |
-| Debian 12 | Accepted by the installer, not tested thoroughly. PHP 8.3 and 8.2 by default. | nginx |
+| **Debian 13** | **Supported** (from v2.1.0), tested on real servers: the install, and `snpanel build` to LiteSpeed Enterprise (Apache as the standby) or Apache alone, and back. In v2.0.0 `snpanel build` refused it. | as AlmaLinux |
+| Ubuntu 24.04 LTS | Installs and runs with nginx; tested less than AlmaLinux. `snpanel build` refuses it ("Ubuntu comes later"). | nginx |
+| Debian 12 | Accepted by the installer and by `snpanel build` (Debian 13's code path), not tested on a real server. PHP 8.3 and 8.2 by default. | as Debian 13 |
 | Ubuntu 26.04 and anything else | Refused by the installer. | - |
 | CloudLinux | Not by these commands: `snpanel build` refuses it. | - |
 
@@ -389,7 +389,7 @@ with a leading `--` (`snpanel --status`), as the old `snpanelctl` did, and
 | `snpanel login` | The panel address, the user and the password from `/root/login.txt`. Alias: `show-login`. |
 | `snpanel status` | The OS, panel port and URL, panel SSL, services and firewall. |
 | `snpanel logs [-f] [-n N]` | The panel's journal: `-f` follows it, `-n` lines of history (default 200). |
-| `snpanel restart` | Restarts the panel and nginx (see [8.2](#82-status-logs-and-restart) on LiteSpeed and Apache). |
+| `snpanel restart` | Restarts the panel, then the stack's web server: nginx, or a safe reload of Apache and LiteSpeed ([8.2](#82-status-logs-and-restart)). |
 | `snpanel repair-firewall` | Reopens the panel and SSH ports. |
 | `snpanel update [--release \| --tag T \| --branch B]` | Updates the panel ([4.2](#42-snpanel-update)). |
 | `snpanel change-ip [OLD_IP NEW_IP]` | The server's IP address changed. |
@@ -399,7 +399,7 @@ with a leading `--` (`snpanel --status`), as the old `snpanelctl` did, and
 | `snpanel change-admin-password` | A new `admin` password (asks twice). |
 | `snpanel sync-admin-root-password` | Makes the `admin` password root's. Aliases: `admin-use-root-password`. |
 | `snpanel reset-admin-2fa` | Turns off the admin's two-step sign-in after a lost device. |
-| `snpanel firewall status \| reopen \| rescue \| migrate-nft --dry-run` | Firewall maintenance ([8.4](#84-firewall)). |
+| `snpanel firewall status \| reopen \| rescue \| migrate-nft [--dry-run]` | Firewall maintenance ([8.4](#84-firewall)). |
 | `snpanel build ...` | The web stack ([section 6](#6-web-stack-snpanel-build)). |
 | `snpanel limits show <USER> \| resync` | Per-account CPU, memory and process limits ([8.7](#87-resource-limits-and-autossl)). |
 | `snpanel autossl` | AutoSSL for every website now, and what it did. |
@@ -411,7 +411,7 @@ with a leading `--` (`snpanel --status`), as the old `snpanelctl` did, and
 ## 6. Web stack: `snpanel build`
 
 A fresh SNPanel serves its websites with nginx and PHP-FPM. On AlmaLinux 10
-(and Rocky Linux or RHEL 10) `snpanel build` moves a server to **LiteSpeed
+(and Rocky Linux or RHEL 10) and Debian 13 (and 12) `snpanel build` moves a server to **LiteSpeed
 Enterprise** with **Apache as a hot standby**, or to **Apache alone**, and
 back to nginx - the way DirectAdmin's CustomBuild does it:
 
@@ -419,8 +419,10 @@ back to nginx - the way DirectAdmin's CustomBuild does it:
    `/etc/snpanel/build.conf`. It checks the value and installs nothing.
 2. A build job (`all`, or one step) makes the server match the declaration.
 
-In v2.0.0 the build refuses Debian and Ubuntu ("Debian and Ubuntu come
-later") and CloudLinux; those servers stay on nginx. The panel's
+The build refuses Ubuntu ("Ubuntu comes later") and CloudLinux; those
+servers stay on nginx. (v2.0.0 refused Debian too.) What Debian does its own
+way under the same commands is in
+[litespeed.md](litespeed.md#debian-13-what-differs). The panel's
 **Server > Web server & PHP** page does the same with buttons. A walkthrough
 with more background is in [litespeed.md](litespeed.md).
 
@@ -506,7 +508,8 @@ lsws_auto_return = yes (applied: the watchdog reads it on its next look)
 
 **Before you start:**
 
-- AlmaLinux 10 (or Rocky Linux or RHEL 10), not CloudLinux.
+- AlmaLinux 10 (or Rocky Linux or RHEL 10) or Debian 13 (or 12), not
+  Ubuntu, not CloudLinux.
 - 2 GB of RAM (see [Hardware](#hardware)); add a 2 GB swap file below 4 GB.
 - 5 GB free on `/`.
 - The server reaches `license.litespeedtech.com`.
@@ -807,7 +810,9 @@ snpanel doctor --enterprise-readiness   # only: could this machine move to Cloud
   it fits a monitoring check.
 - `--isolation` checks, as each customer, that `stat /home/<other>/.` fails.
 - `--enterprise-readiness` checks AlmaLinux 10, an x86-64-v3 CPU, no
-  container, RAM and disk.
+  container, RAM and disk: what the Hosting Edition's
+  `installer/hosting/upgrade-cloudlinux.sh` needs to convert the server to
+  CloudLinux (see `installer/hosting/README.md`).
 
 ### 7.2 Other quick checks
 
@@ -891,14 +896,23 @@ Without a terminal it prints the menu and stops.
 snpanel status
 snpanel logs                 # the last 200 lines
 snpanel logs -n 50 -f        # 50 lines, then follow
-snpanel restart              # the panel, then nginx
+snpanel restart              # the panel, then the stack's web server
 ```
 
-On the LiteSpeed and Apache stacks nginx is no longer installed: in v2.0.0
-`snpanel restart` restarts the panel and then stops with
-`restarting nginx failed`. The panel was restarted all the same. The web
-servers there are the watchdog's: `snpanel build live`, `snpanel build
-switch`.
+`snpanel restart` restarts the panel, then the web server the record says
+(`snpanel build show`):
+
+- **nginx stack:** `systemctl restart nginx`.
+- **LiteSpeed and Apache stacks:** the helper's `web-reload` - the
+  configuration tested, Apache reloaded (a stopped standby stays stopped),
+  LiteSpeed reloaded only when its licence checks valid, so a bad licence
+  never takes it down. Which server answers 80/443 is the watchdog's:
+  `snpanel build live`, `snpanel build switch`.
+- A unit that is not installed is skipped and said so.
+
+Before v2.1, `snpanel restart` always restarted nginx and stopped with
+`restarting nginx failed` on these stacks (the panel was restarted all the
+same).
 
 ### 8.3 Admin password and two-step sign-in
 
@@ -925,6 +939,7 @@ snpanel firewall status             # state and rules
 snpanel repair-firewall             # reopen the panel and SSH ports (also: snpanel firewall reopen)
 snpanel firewall rescue             # drop the panel's nftables table: no panel filtering until it is applied again
 snpanel firewall migrate-nft --dry-run   # print the nftables ruleset the panel loads, from rules.tsv
+snpanel firewall migrate-nft             # load it (through the helper) and remove the old iptables chain
 snpanel-rescue-firewall             # last resort, see below
 ```
 
@@ -934,9 +949,14 @@ snpanel-rescue-firewall             # last resort, see below
   fail2ban) stay. The firewall comes back at the next change, at boot, or
   with `snpanel repair-firewall`.
 - `firewall migrate-nft` is for a server that still filters with the old
-  iptables/ipset backend. Every update already moves such a server to
+  iptables/ipset backend (`snpanel doctor` says so when the old
+  `SNPANEL-INPUT` chain is still loaded). It rebuilds the rules from
+  `rules.tsv` in nftables through the helper, and removes the old chain only
+  once the new ruleset is live. Every update already moves such a server to
   nftables by itself, and `snpanel repair-firewall` loads the same ruleset.
-  In v2.0.0, `migrate-nft` without `--dry-run` refuses and says so.
+  (In v2.0.0, `migrate-nft` without `--dry-run` refused.) The iptables and
+  ipset tools themselves stay installed on Debian: the update uses them to
+  read an old UFW setup, and Docker needs them.
 - **`snpanel-rescue-firewall`** saves the current state to
   `/root/snpanel-firewall-rescue-<time>/` (with a copy of `rules.tsv`),
   removes UFW, the old iptables chain and ipsets and the panel's table,

@@ -32,14 +32,14 @@ Mọi lệnh chạy bằng **root** qua SSH, trừ khi có ghi chú khác. Phầ
 
 ### Hệ điều hành
 
-| Hệ điều hành | Trạng thái ở v2.0.0 | Web stack |
+| Hệ điều hành | Trạng thái | Web stack |
 |---|---|---|
 | **AlmaLinux 10** | **Nền chính.** Được kiểm thử nhiều nhất, hỗ trợ đầy đủ. | Sau khi cài là nginx; `snpanel build` chuyển sang LiteSpeed Enterprise (Apache dự phòng) hoặc chỉ Apache, và chuyển ngược lại |
 | Rocky Linux 10, RHEL 10 | Trình cài và `snpanel build` chấp nhận, nhưng chưa kiểm thử như AlmaLinux. | như AlmaLinux |
 | Oracle Linux 10, CentOS Stream 10 | Trình cài chấp nhận, chưa kiểm thử. `snpanel build` từ chối. | nginx |
-| **Debian 13** | **Đang hoàn thiện.** Cài và chạy được với nginx. Ở v2.0.0, `snpanel build` từ chối Debian và Ubuntu ("Debian and Ubuntu come later"). | nginx |
-| Ubuntu 24.04 LTS | Cài và chạy được với nginx; kiểm thử ít hơn AlmaLinux. `snpanel build` từ chối. | nginx |
-| Debian 12 | Trình cài chấp nhận, chưa kiểm thử kỹ. Mặc định PHP 8.3 và 8.2. | nginx |
+| **Debian 13** | **Hỗ trợ** (từ v2.1.0), đã thử trên máy thật: cài đặt, và `snpanel build` sang LiteSpeed Enterprise (Apache dự phòng) hoặc chỉ Apache, rồi quay lại. Ở v2.0.0, `snpanel build` từ chối hệ này. | như AlmaLinux |
+| Ubuntu 24.04 LTS | Cài và chạy được với nginx; kiểm thử ít hơn AlmaLinux. `snpanel build` từ chối ("Ubuntu comes later"). | nginx |
+| Debian 12 | Trình cài và `snpanel build` chấp nhận (cùng đường code với Debian 13), chưa thử trên máy thật. Mặc định PHP 8.3 và 8.2. | như Debian 13 |
 | Ubuntu 26.04 và các hệ khác | Trình cài từ chối. | - |
 | CloudLinux | Không dùng các lệnh này: `snpanel build` từ chối. | - |
 
@@ -392,7 +392,7 @@ Không có lệnh quay lại bản cũ.
 | `snpanel login` | Địa chỉ panel, tên đăng nhập và mật khẩu trong `/root/login.txt`. Tên khác: `show-login`. |
 | `snpanel status` | Hệ điều hành, cổng và địa chỉ panel, SSL của panel, các dịch vụ và tường lửa. |
 | `snpanel logs [-f] [-n N]` | Journal của panel: `-f` theo dõi liên tục, `-n` số dòng (mặc định 200). |
-| `snpanel restart` | Khởi động lại panel và nginx (trên LiteSpeed và Apache xem [8.2](#muc-8-2)). |
+| `snpanel restart` | Khởi động lại panel, rồi web server của stack: nginx, hoặc reload an toàn Apache và LiteSpeed ([8.2](#muc-8-2)). |
 | `snpanel repair-firewall` | Mở lại cổng panel và cổng SSH. |
 | `snpanel update [--release \| --tag T \| --branch B]` | Cập nhật panel ([4.2](#muc-4-2)). |
 | `snpanel change-ip [OLD_IP NEW_IP]` | Máy chủ đổi địa chỉ IP. |
@@ -402,7 +402,7 @@ Không có lệnh quay lại bản cũ.
 | `snpanel change-admin-password` | Mật khẩu `admin` mới (hỏi hai lần). |
 | `snpanel sync-admin-root-password` | Cho mật khẩu `admin` trùng mật khẩu root. Tên khác: `admin-use-root-password`. |
 | `snpanel reset-admin-2fa` | Tắt đăng nhập hai bước của admin khi mất thiết bị. |
-| `snpanel firewall status \| reopen \| rescue \| migrate-nft --dry-run` | Bảo trì tường lửa ([8.4](#muc-8-4)). |
+| `snpanel firewall status \| reopen \| rescue \| migrate-nft [--dry-run]` | Bảo trì tường lửa ([8.4](#muc-8-4)). |
 | `snpanel build ...` | Web stack ([mục 6](#muc-6)). |
 | `snpanel limits show <USER> \| resync` | Giới hạn CPU, bộ nhớ và số tiến trình theo tài khoản ([8.7](#muc-8-7)). |
 | `snpanel autossl` | Chạy AutoSSL cho mọi website ngay, và in kết quả. |
@@ -415,7 +415,7 @@ Không có lệnh quay lại bản cũ.
 ## 6. Web stack: `snpanel build`
 
 SNPanel mới cài chạy website bằng nginx và PHP-FPM. Trên AlmaLinux 10 (và
-Rocky Linux, RHEL 10), `snpanel build` chuyển máy sang **LiteSpeed
+Rocky Linux, RHEL 10) và Debian 13 (và 12), `snpanel build` chuyển máy sang **LiteSpeed
 Enterprise** với **Apache dự phòng nóng**, hoặc sang **chỉ Apache**, và quay
 về nginx - theo kiểu CustomBuild của DirectAdmin:
 
@@ -423,8 +423,10 @@ về nginx - theo kiểu CustomBuild của DirectAdmin:
    `/etc/snpanel/build.conf`. Lệnh kiểm tra giá trị và không cài gì.
 2. Một job build (`all`, hoặc một bước) đưa máy về đúng khai báo.
 
-Ở v2.0.0, build từ chối Debian, Ubuntu ("Debian and Ubuntu come later") và
-CloudLinux; các máy đó giữ nginx. Trang **Máy chủ > Máy chủ web & PHP** của
+Build từ chối Ubuntu ("Ubuntu comes later") và CloudLinux; các máy đó giữ
+nginx. (v2.0.0 từ chối cả Debian.) Những gì Debian làm theo cách riêng dưới
+cùng các lệnh này có ở
+[litespeed.vi.md](litespeed.vi.md#debian-13-nhung-gi-khac). Trang **Máy chủ > Máy chủ web & PHP** của
 panel làm được những việc này bằng nút bấm. Hướng dẫn chi tiết hơn ở
 [litespeed.vi.md](litespeed.vi.md).
 
@@ -511,7 +513,8 @@ lsws_auto_return = yes (applied: the watchdog reads it on its next look)
 
 **Trước khi bắt đầu:**
 
-- AlmaLinux 10 (hoặc Rocky Linux, RHEL 10), không phải CloudLinux.
+- AlmaLinux 10 (hoặc Rocky Linux, RHEL 10) hoặc Debian 13 (hoặc 12), không
+  phải Ubuntu, không phải CloudLinux.
 - 2 GB RAM (xem [Phần cứng](#phan-cung)); dưới 4 GB thì thêm file swap 2 GB.
 - Trống 5 GB trên `/`.
 - Máy kết nối được tới `license.litespeedtech.com`.
@@ -816,7 +819,9 @@ snpanel doctor --enterprise-readiness   # chỉ kiểm: máy có chuyển lên C
 - `--isolation` kiểm, dưới danh nghĩa từng khách hàng, rằng
   `stat /home/<người khác>/.` thất bại.
 - `--enterprise-readiness` kiểm AlmaLinux 10, CPU x86-64-v3, không phải
-  container, RAM và đĩa.
+  container, RAM và đĩa: những gì `installer/hosting/upgrade-cloudlinux.sh` của
+  bản Hosting Edition cần để chuyển máy lên CloudLinux (xem
+  `installer/hosting/README.md`).
 
 ### 7.2 Kiểm tra nhanh khác
 
@@ -903,13 +908,22 @@ in menu rồi dừng.
 snpanel status
 snpanel logs                 # 200 dòng gần nhất
 snpanel logs -n 50 -f        # 50 dòng, rồi theo dõi tiếp
-snpanel restart              # panel, rồi nginx
+snpanel restart              # panel, rồi web server của stack
 ```
 
-Trên stack LiteSpeed và Apache, nginx không còn được cài: ở v2.0.0,
-`snpanel restart` khởi động lại panel rồi dừng với `restarting nginx failed`.
-Panel vẫn đã được khởi động lại. Web server ở đó do watchdog lo:
-`snpanel build live`, `snpanel build switch`.
+`snpanel restart` khởi động lại panel, rồi tới web server mà bản ghi stack
+nói (`snpanel build show`):
+
+- **Stack nginx:** `systemctl restart nginx`.
+- **Stack LiteSpeed và Apache:** `web-reload` của helper - kiểm tra cấu hình,
+  reload Apache (Apache dự phòng đang dừng thì để dừng), chỉ reload LiteSpeed
+  khi licence hợp lệ, nên licence hỏng không bao giờ làm LiteSpeed tắt. Ai
+  trả lời 80/443 là việc của watchdog: `snpanel build live`,
+  `snpanel build switch`.
+- Unit nào không được cài thì bỏ qua và báo.
+
+Trước v2.1, `snpanel restart` luôn khởi động lại nginx và dừng với
+`restarting nginx failed` trên các stack này (panel vẫn đã được khởi động lại).
 
 ### 8.3 Mật khẩu admin và đăng nhập hai bước
 
@@ -936,6 +950,7 @@ snpanel firewall status             # trạng thái và luật
 snpanel repair-firewall             # mở lại cổng panel và SSH (hoặc: snpanel firewall reopen)
 snpanel firewall rescue             # xoá bảng nftables của panel: panel không lọc gì cho tới khi áp lại
 snpanel firewall migrate-nft --dry-run   # in bộ luật nftables panel sẽ nạp, dựng từ rules.tsv
+snpanel firewall migrate-nft             # nạp bộ luật đó (qua helper) và gỡ chain iptables cũ
 snpanel-rescue-firewall             # cách cuối cùng, xem dưới
 ```
 
@@ -944,10 +959,13 @@ snpanel-rescue-firewall             # cách cuối cùng, xem dưới
 - `firewall rescue` chỉ xoá bảng của panel; các bảng khác (Docker, fail2ban)
   giữ nguyên. Tường lửa có lại ở lần thay đổi kế tiếp, khi khởi động máy, hoặc
   khi chạy `snpanel repair-firewall`.
-- `firewall migrate-nft` dành cho máy còn lọc bằng iptables/ipset kiểu cũ. Mỗi
-  lần cập nhật đã tự chuyển máy như vậy sang nftables, và
-  `snpanel repair-firewall` nạp đúng bộ luật đó. Ở v2.0.0, `migrate-nft` không
-  kèm `--dry-run` sẽ từ chối và nói rõ.
+- `firewall migrate-nft` dành cho máy còn lọc bằng iptables/ipset kiểu cũ
+  (`snpanel doctor` báo khi chain cũ `SNPANEL-INPUT` vẫn còn nạp). Lệnh dựng lại
+  luật từ `rules.tsv` trong nftables qua helper, và chỉ gỡ chain cũ khi bộ luật
+  mới đã chạy. Mỗi lần cập nhật đã tự chuyển máy như vậy sang nftables, và
+  `snpanel repair-firewall` nạp đúng bộ luật đó. (Ở v2.0.0, `migrate-nft` không
+  kèm `--dry-run` từ chối.) Bộ công cụ iptables và ipset vẫn được cài trên
+  Debian: bản cập nhật dùng chúng để đọc cấu hình UFW cũ, và Docker cần chúng.
 - **`snpanel-rescue-firewall`** lưu trạng thái hiện tại vào
   `/root/snpanel-firewall-rescue-<thời điểm>/` (kèm bản sao `rules.tsv`), gỡ
   UFW, chain iptables và ipset cũ cùng bảng của panel, **xoá trắng các luật

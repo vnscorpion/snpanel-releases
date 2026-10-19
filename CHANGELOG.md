@@ -2,6 +2,92 @@
 
 Tiếng Việt trước, English below.
 
+## v2.1.0
+
+Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release candidates `v2.1.0-rc.N`).
+
+### Tiếng Việt
+
+**Debian 13: LiteSpeed Enterprise và Apache qua `snpanel build`**
+
+- `snpanel build` chạy trên Debian 13 như trên AlmaLinux 10:
+  - nginx → LiteSpeed Enterprise, Apache dự phòng nóng, watchdog tự chuyển và tự quay về;
+  - nginx → chỉ Apache (PHP-FPM);
+  - quay về nginx từ cả hai.
+  - Debian 12 dùng cùng đường code nhưng chưa được thử trên máy thật. Ubuntu vẫn bị từ chối.
+- Apache là gói `apache2`:
+  - module bật bằng `a2enmod` (ssl, http2, proxy, proxy_fcgi, rewrite, headers, security2, expires, setenvif ...);
+  - `ports.conf` của panel chỉ có 8080/8443;
+  - site và conf mặc định của Debian (000-default, phpmyadmin.conf ...) thành file chỉ có chú thích;
+  - `www-data` nằm trong nhóm của từng khách hàng khi home được cách ly (0750).
+- lsphp từ kho apt của LiteSpeed, khoá ký kèm theo panel và ghim SHA-256; mỗi phiên bản PHP là gói `lsphpXY`.
+  - Phần mở rộng của PHP-FPM được ánh xạ sang `lsphpXY-*`. LiteSpeed không đóng gói FFI, shmop (8.3, 8.4) và mcrypt (8.4): job ghi lại các chỗ thiếu này.
+  - `php.ini` của lsphp nhận các thiết lập của panel; các file ini của panel (OPcache ...) được liên kết vào thư mục quét của lsphp, cả khi trang PHP ghi file đó sau khi build.
+  - Mỗi tên miền một phiên bản PHP, chạy bằng user của khách hàng (suEXEC), đã kiểm trên máy thật.
+- WAF: `libapache2-mod-security2` với OWASP CRS 4.29 ghim; LiteSpeed đọc cùng bộ luật.
+- nginx được gỡ (remove, không purge: giữ `/etc/nginx` để quay về). Gói certbot cho nginx đi cùng nginx mà không hỏi lại.
+- Một trial key đặt sẵn ở `/usr/local/lsws/conf/trial.key` trước lần cài LiteSpeed đầu tiên được dùng lại, không xin trial mới (máy cài lại mà IP đã có trial).
+
+**Sửa lỗi tìm thấy trên Debian 13**
+
+- Bộ lọc thư (Sieve): kiểm tra bằng `sievec` không chạy được với Dovecot 2.4, nên mọi bộ lọc bị từ chối.
+- Chuyển hộp thư qua IMAP (`doveadm imapc`): cấu hình cho Dovecot 2.4 sai thứ tự và dùng tên tính năng của 2.3.
+- ModSecurity cho Apache: file `unicode.mapping` được ghi đường dẫn tuyệt đối (trước đó `apache2ctl -t` từ chối).
+
+**Lệnh**
+
+- `snpanel restart` khởi động lại web server của stack đang chạy: nginx, hoặc reload an toàn Apache và LiteSpeed. Trước đây lệnh luôn gọi nginx và báo lỗi trên stack LiteSpeed/Apache.
+- `snpanel firewall migrate-nft` (không kèm `--dry-run`) nạp bộ luật qua helper thay vì từ chối.
+- `snpanel doctor` chỉ báo về iptables khi chain cũ `SNPANEL-INPUT` còn được nạp.
+- Thông báo về CloudLinux chỉ đúng script `installer/hosting/upgrade-cloudlinux.sh`.
+
+**Giới hạn đã biết**
+
+- Ubuntu 24.04: `snpanel build` vẫn chưa mở.
+- Debian 12: cùng đường code với Debian 13 nhưng chưa thử trên máy thật.
+- Trên Debian, Valkey của panel là gói `redis-server` (Redis 8.0) của Debian.
+
+### English
+
+**Debian 13: LiteSpeed Enterprise and Apache through `snpanel build`**
+
+- `snpanel build` runs on Debian 13 as it does on AlmaLinux 10:
+  - nginx → LiteSpeed Enterprise, with Apache as the hot standby and the watchdog's failover and automatic return;
+  - nginx → Apache alone (PHP-FPM);
+  - back to nginx from either.
+  - Debian 12 takes the same code path but has not been tested on a real server. Ubuntu is still refused.
+- Apache is the `apache2` package:
+  - modules switched on with `a2enmod` (ssl, http2, proxy, proxy_fcgi, rewrite, headers, security2, expires, setenvif ...);
+  - the panel's `ports.conf` listens on 8080/8443 only;
+  - Debian's stock sites and snippets (000-default, phpmyadmin.conf ...) become comment-only files;
+  - `www-data` is in each customer's group once the homes are isolated (0750).
+- lsphp comes from LiteSpeed's apt repository, its signing key shipped with the panel and pinned by SHA-256; each PHP version is an `lsphpXY` package.
+  - PHP-FPM's extensions are mapped onto `lsphpXY-*` packages. LiteSpeed packages no FFI and shmop (8.3, 8.4) and no mcrypt (8.4): the job records these gaps.
+  - lsphp's `php.ini` gets the panel's settings, and the panel's ini files (OPcache ...) are linked into lsphp's scan directory, also when the PHP pages write one after the build.
+  - A PHP version per domain, run as the customer (suEXEC), checked on a real server.
+- WAF: `libapache2-mod-security2` with the pinned OWASP CRS 4.29; LiteSpeed reads the same rules.
+- nginx is removed (not purged: `/etc/nginx` stays for the way back). certbot's nginx plugin goes with it without a question.
+- A trial key put in `/usr/local/lsws/conf/trial.key` before LiteSpeed's first install is used instead of asking for a new trial (a reinstalled server whose IP already has one).
+
+**Fixes found on Debian 13**
+
+- Mail filters (Sieve): the `sievec` check could not start on Dovecot 2.4, so every filter was refused.
+- IMAP mailbox migration (`doveadm imapc`): the configuration for Dovecot 2.4 had its version setting in the wrong place and used 2.3's feature names.
+- ModSecurity for Apache: `unicode.mapping` is named by its absolute path (`apache2ctl -t` refused the relative one).
+
+**Commands**
+
+- `snpanel restart` restarts the running stack's web server: nginx, or a safe reload of Apache and LiteSpeed. It used to always ask for nginx and fail on the LiteSpeed and Apache stacks.
+- `snpanel firewall migrate-nft` (without `--dry-run`) loads the ruleset through the helper instead of refusing.
+- `snpanel doctor` mentions iptables only when the old `SNPANEL-INPUT` chain is still loaded.
+- The CloudLinux messages name the real script, `installer/hosting/upgrade-cloudlinux.sh`.
+
+**Known limits**
+
+- Ubuntu 24.04: `snpanel build` is not open yet.
+- Debian 12: the same code path as Debian 13, not tested on a real server.
+- On Debian the panel's Valkey is Debian's `redis-server` package (Redis 8.0).
+
 ## v2.0.0
 
 Phát hành 19/10/2026 / Released 2026-10-19.

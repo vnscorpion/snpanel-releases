@@ -16,17 +16,23 @@ của panel làm được những việc này bằng nút bấm.
 
 ## Trước khi bắt đầu
 
-- **AlmaLinux 10.**
-  - Trên Debian và Ubuntu, `snpanel build` tạm thời từ chối LiteSpeed; các
-    máy đó dùng nginx.
+- **AlmaLinux 10 hoặc Debian 13.**
+  - Rocky Linux và RHEL 10 đi đường của AlmaLinux. Debian 12 đi đường của
+    Debian 13 nhưng chưa được thử trên máy thật.
+  - Trên Ubuntu, `snpanel build` tạm thời từ chối LiteSpeed; các máy đó dùng
+    nginx.
   - Đường này không hỗ trợ CloudLinux.
 - **Đĩa và RAM.** Trống ít nhất 5 GB trên `/`. RAM dưới 4 GB thì nên thêm
   swap 2 GB trước.
 - **Mạng.** Máy phải kết nối được tới `license.litespeedtech.com`.
 - **Cổng trống.** Không có gì khác đang nghe ở 8080/8443 (Apache) hay
   9080/9443 (LiteSpeed).
-- **Kho PHP Remi.** Phải đã cấu hình (trình cài làm việc này). Mọi phiên bản
-  PHP mà site đang dùng phải đã cài.
+- **lsphp lấy từ đâu.**
+  - AlmaLinux: kho PHP Remi phải đã cấu hình (trình cài làm việc này).
+  - Debian: bước update thêm kho apt của chính LiteSpeed
+    (`rpms.litespeedtech.com/debian`), khoá ký kèm theo panel và được ghim;
+    lsphp là các gói `lsphpXY`.
+  - Mọi phiên bản PHP mà site đang dùng phải đã cài.
 - **Không có job đang chạy.** Không có job khôi phục, nhập hay sao lưu nào.
   Build không chờ: nó từ chối và nói job nào đang chạy.
 - **Giấy phép.** Trial hoặc serial:
@@ -79,6 +85,11 @@ snpanel build preview --wait
 
 `preview` chạy preflight và bước update ở chế độ chạy thử. Lệnh cho xem kế
 hoạch và không đổi gì.
+
+Trên Debian, plugin nginx của certbot (`python3-certbot-nginx`) phụ thuộc
+nginx nên bị gỡ cùng nginx: điều này đã được tính, cutover chuyển việc gia hạn
+mọi chứng chỉ ra khỏi plugin đó trước, và khi quay về nginx thì gói được cài
+lại.
 
 Trên máy AlmaLinux mới cài, preview có thể báo rằng trình quản lý gói sẽ gỡ
 luôn phpMyAdmin cùng nginx. Lý do là lúc đó Apache chưa được cài. Đến bước
@@ -247,6 +258,30 @@ snpanel build all --remove-litespeed --wait   # như trên, và gỡ luôn LiteS
   LiteSpeed sẽ dùng lại key đó, không xin trial mới.
 - `snpanel build set webserver apache` rồi `snpanel build all --wait` chuyển
   máy sang chỉ dùng Apache, với PHP-FPM.
+
+<a id="debian-13-nhung-gi-khac"></a>
+
+## Debian 13: những gì khác
+
+Các lệnh giống hệt. Bên dưới thì khác:
+
+| | AlmaLinux 10 | Debian 13 |
+|---|---|---|
+| Apache | `httpd`, `/etc/httpd` | `apache2`, `/etc/apache2`; module bật bằng `a2enmod`; `ports.conf` của panel (chỉ 8080/8443); site `000-default` và các snippet mặc định (`phpmyadmin.conf`, `serve-cgi-bin.conf` ...) thành file chỉ có chú thích |
+| Tài khoản web server | `apache` | `www-data` |
+| Log của site | `/var/log/httpd/<tên miền>.access.log` | `/var/log/apache2/<tên miền>.access.log` |
+| lsphp | `phpXY-php-litespeed` của Remi, dùng chung `php.d` với PHP-FPM | các gói `lsphpXY` của LiteSpeed trong `/usr/local/lsws/lsphpXY`; file ini của panel được liên kết vào `/usr/local/lsws/lsphpXY/etc/php/X.Y/mods-available` |
+| ModSecurity | `mod_security` | `libapache2-mod-security2`; file engine là `/etc/apache2/modsec/engine.conf` |
+| Gỡ nginx | `dnf remove` (giữ `nginx-filesystem`) | `apt-get remove` (không purge: giữ `/etc/nginx` để quay về) |
+
+- Các phần mở rộng PHP-FPM mà LiteSpeed không đóng gói cho lsphp (FFI,
+  shmop, và mcrypt trên 8.4) được ghi trong log và kế hoạch của job
+  (`lsphp_gaps`); dưới LiteSpeed các site chạy không có chúng.
+- **Trial key từ trước khi cài lại máy.** LiteSpeed cấp mỗi IP hai lần trial.
+  Máy cài lại mà IP đã có trial còn hạn: đặt key đã lưu ở
+  `/usr/local/lsws/conf/trial.key` (root, 0600) trước lần build đầu tiên; bước
+  webserver cài LiteSpeed bằng key đó và không xin trial mới. Key không hợp lệ
+  thì bước cài dừng lại; không có trial nào khác được xin.
 
 ## Các khoá trong build.conf
 

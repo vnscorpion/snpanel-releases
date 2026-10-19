@@ -16,17 +16,24 @@ Everything below runs as root over SSH. The panel's
 
 ## Before you start
 
-- **AlmaLinux 10.**
-  - On Debian and Ubuntu, `snpanel build` refuses LiteSpeed for now, and those
-    servers stay on nginx.
+- **AlmaLinux 10 or Debian 13.**
+  - Rocky Linux and RHEL 10 take AlmaLinux's path. Debian 12 takes Debian
+    13's but has not been tested on a real server.
+  - On Ubuntu, `snpanel build` refuses LiteSpeed for now, and those servers
+    stay on nginx.
   - CloudLinux is not supported by this path.
 - **Disk and memory.** At least 5 GB free on `/`. With less than 4 GB of RAM,
   add a 2 GB swap file first.
 - **Network.** The server must reach `license.litespeedtech.com`.
 - **Free ports.** Nothing else may listen on 8080/8443 (Apache) or 9080/9443
   (LiteSpeed).
-- **Remi's PHP repository.** It must be configured (the installer does that).
-  Every PHP version a site uses must be installed.
+- **Where lsphp comes from.**
+  - AlmaLinux: Remi's PHP repository must be configured (the installer does
+    that).
+  - Debian: the update step adds LiteSpeed's own apt repository
+    (`rpms.litespeedtech.com/debian`), its signing key shipped with the panel
+    and pinned; lsphp is the `lsphpXY` packages.
+  - Every PHP version a site uses must be installed.
 - **No running jobs.** No restore, import or backup job may be running. The
   build waits for nothing; it refuses and tells you which job is running.
 - **A licence.** Either a trial or a serial:
@@ -80,6 +87,10 @@ snpanel build preview --wait
 
 `preview` runs the preflight and the update step as a dry run. It shows the
 plan and changes nothing.
+
+On Debian, certbot's nginx plugin (`python3-certbot-nginx`) depends on
+nginx and goes with it: expected, the cutover moves every certificate's
+renewal off it first, and the way back to nginx installs it again.
 
 On a fresh AlmaLinux server the preview may say that the package manager
 would also remove phpMyAdmin with nginx. That is because Apache is not
@@ -251,6 +262,29 @@ snpanel build all --remove-litespeed --wait   # the same, and LiteSpeed and Apac
   to LiteSpeed reuses it and does not ask for a new trial.
 - `snpanel build set webserver apache` followed by `snpanel build all --wait`
   moves the server to Apache alone, with PHP-FPM.
+
+## Debian 13: what differs
+
+The commands are the same. Under the hood:
+
+| | AlmaLinux 10 | Debian 13 |
+|---|---|---|
+| Apache | `httpd`, `/etc/httpd` | `apache2`, `/etc/apache2`; modules with `a2enmod`; the panel's `ports.conf` (8080/8443 only); the stock `000-default` site and snippets (`phpmyadmin.conf`, `serve-cgi-bin.conf` ...) become comment-only files |
+| Web server account | `apache` | `www-data` |
+| Sites' logs | `/var/log/httpd/<domain>.access.log` | `/var/log/apache2/<domain>.access.log` |
+| lsphp | Remi's `phpXY-php-litespeed`, one `php.d` with PHP-FPM | LiteSpeed's `lsphpXY` packages in `/usr/local/lsws/lsphpXY`; the panel's ini files are linked into `/usr/local/lsws/lsphpXY/etc/php/X.Y/mods-available` |
+| ModSecurity | `mod_security` | `libapache2-mod-security2`; the engine file is `/etc/apache2/modsec/engine.conf` |
+| nginx removal | `dnf remove` (keeps `nginx-filesystem`) | `apt-get remove` (not purge: `/etc/nginx` stays for the way back) |
+
+- PHP-FPM extensions LiteSpeed does not package for lsphp (FFI, shmop, and
+  mcrypt on 8.4) are listed in the job's log and plan (`lsphp_gaps`); the
+  sites run without them under LiteSpeed.
+- **A trial key from before a reinstall.** LiteSpeed gives each IP two
+  trials. On a reinstalled server whose IP already has a valid trial, put the
+  saved key at `/usr/local/lsws/conf/trial.key` (root, 0600) before the
+  first build: the webserver step installs LiteSpeed with it and asks for no
+  new trial. A key that is not valid stops the install; no other trial is
+  asked for.
 
 ## build.conf keys
 
