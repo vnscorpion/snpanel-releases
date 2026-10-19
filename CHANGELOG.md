@@ -33,6 +33,8 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 - Bộ lọc thư (Sieve): kiểm tra bằng `sievec` không chạy được với Dovecot 2.4, nên mọi bộ lọc bị từ chối.
 - Chuyển hộp thư qua IMAP (`doveadm imapc`): cấu hình cho Dovecot 2.4 sai thứ tự và dùng tên tính năng của 2.3.
 - ModSecurity cho Apache: file `unicode.mapping` được ghi đường dẫn tuyệt đối (trước đó `apache2ctl -t` từ chối).
+- Thư của `exim4-base` (dọn dẹp hằng ngày của Debian) không còn bị dừng giữa chừng khi dịch vụ kết thúc ("Failed writing transport results to pipe" trong paniclog, cảnh báo paniclog lặp lại mỗi ngày).
+- File include tuỳ chỉnh của nginx và luật WAF riêng của site mới được ghi 0640; thư mục `/etc/nginx/snpanel/custom` giữ 2770 sau mỗi lần cập nhật (`snpanel doctor` không còn cảnh báo web-file-modes).
 
 **Lệnh**
 
@@ -74,6 +76,8 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 - Mail filters (Sieve): the `sievec` check could not start on Dovecot 2.4, so every filter was refused.
 - IMAP mailbox migration (`doveadm imapc`): the configuration for Dovecot 2.4 had its version setting in the wrong place and used 2.3's feature names.
 - ModSecurity for Apache: `unicode.mapping` is named by its absolute path (`apache2ctl -t` refused the relative one).
+- The mail Debian's daily `exim4-base` housekeeping sends is no longer cut off when the service ends ("Failed writing transport results to pipe" in the paniclog, and a paniclog alert that came back every day).
+- A new site's nginx custom include and WAF rules are written 0640, and `/etc/nginx/snpanel/custom` stays 2770 across updates (`snpanel doctor` no longer warns about web-file-modes).
 
 **Commands**
 
