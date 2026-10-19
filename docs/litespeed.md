@@ -30,7 +30,7 @@ Everything below runs as root over SSH. The panel's
 - **No running jobs.** No restore, import or backup job may be running. The
   build waits for nothing; it refuses and tells you which job is running.
 - **A licence.** Either a trial or a serial:
-  - **Trial:** about two weeks. LiteSpeed gives each IP address two trials, ever.
+  - **Trial:** 14 days. LiteSpeed gives each IP address two trials, ever.
   - **Serial:** a purchased LiteSpeed Enterprise licence.
 - **A snapshot of the VPS** is a good idea, as before any change to the web
   server.
@@ -81,13 +81,21 @@ snpanel build preview --wait
 `preview` runs the preflight and the update step as a dry run. It shows the
 plan and changes nothing.
 
+On a fresh AlmaLinux server the preview may say that the package manager
+would also remove phpMyAdmin with nginx. That is because Apache is not
+installed yet. The cutover asks the package manager again, after Apache is
+installed, and then phpMyAdmin stays. If the cutover still lists packages
+that would go with nginx, the job stops and asks. Cancel it unless you mean
+to remove them.
+
 ## 4. Build and cut over
 
 ```bash
 snpanel build all --wait
 ```
 
-`all` runs one background job with these steps:
+`all` runs one background job with these steps. On a 4-CPU VPS the whole
+job took about four minutes.
 
 | Step | What it does |
 |---|---|

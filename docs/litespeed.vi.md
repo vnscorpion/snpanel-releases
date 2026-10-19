@@ -30,8 +30,8 @@ của panel làm được những việc này bằng nút bấm.
 - **Không có job đang chạy.** Không có job khôi phục, nhập hay sao lưu nào.
   Build không chờ: nó từ chối và nói job nào đang chạy.
 - **Giấy phép.** Trial hoặc serial:
-  - **Trial:** khoảng hai tuần. Mỗi địa chỉ IP chỉ được LiteSpeed cấp hai
-    lần trial, mãi mãi.
+  - **Trial:** 14 ngày. Mỗi địa chỉ IP chỉ được LiteSpeed cấp hai lần trial,
+    mãi mãi.
   - **Serial:** giấy phép LiteSpeed Enterprise đã mua.
 - **Snapshot VPS** trước khi đổi web server là nên làm.
 
@@ -80,13 +80,20 @@ snpanel build preview --wait
 `preview` chạy preflight và bước update ở chế độ chạy thử. Lệnh cho xem kế
 hoạch và không đổi gì.
 
+Trên máy AlmaLinux mới cài, preview có thể báo rằng trình quản lý gói sẽ gỡ
+luôn phpMyAdmin cùng nginx. Lý do là lúc đó Apache chưa được cài. Đến bước
+cutover, Apache đã có, trình quản lý gói được hỏi lại và phpMyAdmin được giữ.
+Nếu cutover vẫn liệt kê gói sẽ bị gỡ cùng nginx thì job dừng lại và hỏi. Hãy
+huỷ job, trừ khi bạn thật sự muốn gỡ các gói đó.
+
 ## 4. Build và chuyển
 
 ```bash
 snpanel build all --wait
 ```
 
-`all` chạy một job nền gồm các bước:
+`all` chạy một job nền gồm các bước sau. Trên VPS 4 CPU, cả job mất khoảng
+bốn phút.
 
 | Bước | Việc làm |
 |---|---|
