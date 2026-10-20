@@ -310,31 +310,64 @@ load. IMAP is never built: since PHP 8.4 it lives in PECL on top of the UW
 c-client library, which Debian 13 dropped and nobody maintains.
 
 **How a build runs.** A job in a unit of its own (`snpanel-lsext-<job>`),
-one at a time, never during a panel update or a web-stack build:
+one at a time, never during a panel update or a web-stack build (it holds
+both of their locks shared, and a web-stack build does not start while it
+builds):
 
-1. lsphp is asked its release and PHP API (`php -n -i`).
+1. lsphp is asked its release and PHP API - in the sandbox below, as
+   `nobody` (see *Never as root*).
 2. The build tools are installed when missing and kept, as the next build
    needs them: `build-essential autoconf pkg-config xz-utils lsphpXY-dev`,
-   and `libffi-dev` (FFI) or `libmcrypt-dev` (mcrypt). The packages the
-   panel added are listed on the page; nothing is ever removed.
-3. **The source, verified by root before anything reads it.** FFI and
-   shmop: `php-<release>.tar.xz` of exactly lsphp's release from
-   `https://www.php.net/distributions/`, its SHA-256 from php.net's release
-   list (`https://www.php.net/releases/index.php?json&version=<release>`),
-   both HTTPS only; a tarball with another hash is deleted and the build
-   refused. mcrypt: `https://pecl.php.net/get/mcrypt-1.0.9.tgz`, SHA-256
-   `2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5` and
-   its size pinned in the panel. Verified tarballs are kept in
+   and `libffi-dev` (FFI) or `libmcrypt-dev` (mcrypt). Everything apt
+   installed with them is recorded and listed on the page; **Remove build
+   tools** takes them away when no more builds are wanted (never a library a
+   built module loads, such as `libmcrypt4`, and only when apt would remove
+   nothing else), and a later build or rebuild installs them again by
+   itself. The panel never removes them on its own.
+3. **The source, verified before anything reads it.** FFI and shmop:
+   `php-<release>.tar.xz` of exactly lsphp's release from
+   `https://www.php.net/distributions/`, HTTPS only, checked twice:
+   - its SHA-256 against php.net's release list
+     (`https://www.php.net/releases/index.php?json&version=<release>`);
+   - its detached signature (`php-<release>.tar.xz.asc`) with `gpgv`, against
+     the keys of that branch's release managers only. The fingerprints are
+     pinned in the panel and the keys ship with it, one keyring per branch,
+     exported from php.net's keyring and pinned by SHA-256:
+
+     | Branch | Release managers' keys |
+     |---|---|
+     | 8.2 | `39B641343D8C104B2B146DC3F9C39DC0B9698544`, `E60913E4DF209907D8E30D96659A97C9CF2A795A`, `1198C0117593497A5EC5C199286AF1F9897469DC` |
+     | 8.3 | `1198C0117593497A5EC5C199286AF1F9897469DC`, `C28D937575603EB4ABB725861C0779DC5C0A9DE4`, `AFD8691FDAEDF03BDF6E460563F15A9B715376CA` |
+     | 8.4 | `AFD8691FDAEDF03BDF6E460563F15A9B715376CA`, `9D7F99A0CB8F05C8A6958D6256A97AF7600A39A6`, `0616E93D95AF471243E26761770426E17EBBB3DD` |
+     | 8.5 | `1198C0117593497A5EC5C199286AF1F9897469DC`, `49D9AF6BC72A80D6691719C8AA23F5BE9C7097D4`, `D95C03BC702BE9515344AE3374E44BC9067701A5` |
+
+     A new patch release of these branches verifies without a panel
+     release; a tarball they did not sign is refused, its signature dropped
+     from the cache, and nothing is built. A branch without pinned keys
+     (7.4, 8.0, 8.1) is not built.
+
+   mcrypt: `https://pecl.php.net/get/mcrypt-1.0.9.tgz`, SHA-256
+   `2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5` and its
+   size pinned in the panel. Verified tarballs and signatures are kept in
    `/var/lib/snpanel-lsext/cache` (root, 0600) and checked again on every use.
-4. **Compiled as nobody's root.** Unpacking, `phpize`, `./configure`, `make`
-   and a first test load (`php -n -d extension=... -m`) run as the system
-   account `snpanel-extbuild` (no login, no home) in a transient systemd
-   unit: no network (`PrivateNetwork`), no capabilities, `NoNewPrivileges`,
-   the whole system read-only but its own folder under
-   `/var/lib/snpanel-lsext-work`, its own `/tmp`, the panel's files and the
-   customers' homes out of sight, memory capped (768 MB, or half the RAM on
-   a small server), the lowest CPU and I/O priority, `make -j1` below 3 GB
-   of RAM.
+4. **Compiled as nobody's root.** The signature check, unpacking, `phpize`,
+   `./configure`, `make` and a first test load (`php -n -d extension=... -m`)
+   run as the system account `snpanel-extbuild` (no login, no home) in a
+   transient systemd unit:
+   - no network and no socket at all (`PrivateNetwork`,
+     `RestrictAddressFamilies=AF_INET` in an empty network namespace, `PrivateIPC`): neither the internet nor
+     the host's Unix sockets (MariaDB, D-Bus, Dovecot);
+   - no capabilities, `NoNewPrivileges`, `SystemCallFilter=@system-service`;
+   - the whole system read-only but its own folder under
+     `/var/lib/snpanel-lsext-work` - a folder root made, the only writable
+     path and the unit's working directory; each step enters the source
+     folder inside the sandbox (`env --chdir`), after root has checked every
+     folder on the way is a real folder, not a link;
+   - its own `/tmp`, the panel's files and the customers' homes out of sight;
+   - memory capped (768 MB, or half the RAM on a small server), the lowest
+     CPU and I/O priority, `make -j1` below 3 GB of RAM;
+   - units a cut-off build left behind are stopped before the account builds
+     again.
 5. Root reads the module back without following any link, checks it is a
    regular file and an ELF shared object for this machine, and installs it
    into lsphp's `extension_dir` (0644); `30-snpanel-<ext>.ini` in
@@ -342,6 +375,11 @@ one at a time, never during a panel update or a web-stack build:
    folder) enables it. If lsphp does not load it with its own ini files, both
    are taken away again. lsphp restarts gracefully (LiteSpeed's
    `.lsphp_restart.txt`).
+
+**Never as root.** Whenever the panel asks lsphp what it loads - the page,
+the checks, `snpanel doctor` - lsphp's CLI runs with its modules loaded in
+the same kind of sandbox, as `nobody`: a module's code never runs in a root
+process.
 
 Where LiteSpeed does package one (Debian 12's `lsphpXY-imap`), **Install and
 enable** installs that package instead.
@@ -358,25 +396,33 @@ must not allow. `snpanel doctor` warns when it is not `preload`.
 **Kept across lsphp's upgrades.** The panel records each build in
 `/var/lib/snpanel-lsext/state.json` (root): the lsphp release, its PHP API
 (`PHP Extension`, and `PHP Extension Build` such as `API20240924,NTS`), the
-source and its SHA-256, the module's SHA-256. A patch upgrade (8.4.26 to
-8.4.27) keeps the API: the module only has to still load. A minor one
-changes the API and the extension folder: the module is built again, its ini
-taken away until then so lsphp does not warn about a missing file. This
-check runs once a day (the panel), after a panel update, in the web-stack
-build's php step and after an OS update from the Updates page. A build that
-fails, or a module lsphp does not load, shows in the bell and is told through
-the Notifications addon (*An lsphp extension the panel built needs a look*);
-a build that failed for the very same lsphp is not retried by itself.
-`snpanel doctor` reports the same (`lsphp-extensions`).
+source and its SHA-256, the module's SHA-256. When lsphp moves to another PHP
+release:
+
+- a **patch release** (8.4.26 to 8.4.27) keeps the API, but FFI and shmop
+  come from that release's source, so they are built again from the new
+  tarball (its fixes reach the module); mcrypt's source is PECL's, the same
+  whatever the patch release, so it only has to still load;
+- a **minor release** changes the API and the extension folder: every module
+  is built again, its ini taken away until then so lsphp does not warn about
+  a missing file.
+
+This check runs once a day (the panel), after a panel update, in the
+web-stack build's php step and after an OS update from the Updates page. A
+build that fails, or a module lsphp does not load, shows in the bell and is
+told through the Notifications addon (*An lsphp extension the panel built
+needs a look*); a build that failed for the very same lsphp is not retried by
+itself. `snpanel doctor` reports the same (`lsphp-extensions`).
 
 From the command line (root):
 
 ```bash
-snpanel-helper lsphp-ext-status 8.4        # each extension: source, loaded, record (JSON)
+snpanel-helper lsphp-ext-status 8.4        # each extension: source, loaded, record (JSON); changes nothing
 snpanel-helper lsphp-ext-build 8.4 ffi     # queue a build (ffi, shmop, mcrypt; imap where packaged)
 snpanel-helper lsphp-ext-log 8.4 ffi       # its log
 snpanel-helper lsphp-ext-remove 8.4 ffi    # ini and module removed, not built again
 snpanel-helper lsphp-ext-check             # what the daily check does
+snpanel-helper lsphp-ext-tools-remove      # the build tools the panel installed, removed
 ```
 
 ## build.conf keys

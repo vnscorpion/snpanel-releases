@@ -1020,7 +1020,7 @@ addons, mail, DNS, WordPress and the WAF are managed **in the panel**. The
 `snpanel-helper` is the panel's root helper. The panel calls it over
 `/run/snpanel/helper.sock`; root can run one operation directly with
 `snpanel-helper <operation>`. `snpanel-helper --help` lists all of them
-(297 in v2.1.0). Most are the panel's own work: run only these by hand.
+(298 in v2.1.0). Most are the panel's own work: run only these by hand.
 
 | Command | What it does |
 |---|---|
@@ -1032,10 +1032,11 @@ addons, mail, DNS, WordPress and the WAF are managed **in the panel**. The
 | `snpanel-helper clamav-db-status` | The malware signature database in use, as JSON (Malware Scanner addon). |
 | `snpanel-helper malware-sigs-update` | Updates ClamAV's and LMD's signatures now (Malware Scanner addon). |
 | `snpanel-helper lsphp-ext-status [<version>]` | The lsphp extensions the panel builds on Debian's LiteSpeed lsphp (ffi, shmop, mcrypt; imap where LiteSpeed packages it), as JSON: with a version, each one's source, whether lsphp loads it and its build's record; without, the records ([litespeed.md](litespeed.md#lsphp-extensions-litespeed-does-not-package)). |
-| `snpanel-helper lsphp-ext-build <version> <ext>` | Builds one from verified source in a sandbox (or installs LiteSpeed's package) and enables it, in a unit of its own (`snpanel-lsext-<job>`). Refused on AlmaLinux (Remi's packages) and for imap on Debian 13 (not offered). |
+| `snpanel-helper lsphp-ext-build <version> <ext>` | Builds one from verified, signed source in a sandbox (or installs LiteSpeed's package) and enables it, in a unit of its own (`snpanel-lsext-<job>`). Refused on AlmaLinux (Remi's packages) and for imap on Debian 13 (not offered). |
 | `snpanel-helper lsphp-ext-log <version> <ext>` | The last build's log. |
 | `snpanel-helper lsphp-ext-remove <version> <ext>` | Takes the module and its ini away (or LiteSpeed's package); it is not built again. lsphp restarts gracefully. |
-| `snpanel-helper lsphp-ext-check` | Each built extension against lsphp as it is now: still loaded after a patch upgrade, built again after a minor one changed the PHP API. The panel runs it daily and after an update. |
+| `snpanel-helper lsphp-ext-check` | Each built extension against lsphp as it is now: FFI and shmop built again when lsphp moves to another PHP release (a patch release too), every extension when the PHP API changed. The panel runs it daily and after an update. |
+| `snpanel-helper lsphp-ext-tools-remove` | Removes the build tools the panel installed (never a library a built module loads); a later build installs them again. |
 
 Every call is recorded: `journalctl -t snpanel-helper`.
 

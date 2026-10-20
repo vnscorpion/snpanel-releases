@@ -1029,7 +1029,7 @@ không có lệnh con cho chúng. Muốn tự động hoá thì có:
 
 `snpanel-helper` là helper chạy quyền root của panel. Panel gọi nó qua
 `/run/snpanel/helper.sock`; root chạy trực tiếp một thao tác bằng
-`snpanel-helper <thao tác>`. `snpanel-helper --help` liệt kê tất cả (297 thao
+`snpanel-helper <thao tác>`. `snpanel-helper --help` liệt kê tất cả (298 thao
 tác ở v2.1.0). Phần lớn là việc riêng của panel: chỉ nên tự chạy các thao tác
 sau.
 
@@ -1046,7 +1046,8 @@ sau.
 | `snpanel-helper lsphp-ext-build <phiên bản> <ext>` | Build một extension từ mã nguồn đã kiểm tra trong sandbox (hoặc cài gói của LiteSpeed) rồi bật lên, trong unit riêng (`snpanel-lsext-<job>`). Bị từ chối trên AlmaLinux (gói của Remi) và với imap trên Debian 13 (không có). |
 | `snpanel-helper lsphp-ext-log <phiên bản> <ext>` | Nhật ký của lần build gần nhất. |
 | `snpanel-helper lsphp-ext-remove <phiên bản> <ext>` | Gỡ module và tệp ini của nó (hoặc gói của LiteSpeed); không build lại. lsphp khởi động lại nhẹ nhàng. |
-| `snpanel-helper lsphp-ext-check` | Kiểm tra từng extension đã build với lsphp hiện tại: vẫn nạp được sau bản vá, build lại sau bản phụ đổi PHP API. Panel chạy mỗi ngày và sau khi cập nhật. |
+| `snpanel-helper lsphp-ext-check` | Kiểm tra từng extension đã build với lsphp hiện tại: FFI và shmop được build lại khi lsphp lên bản phát hành PHP khác (cả bản vá), mọi extension khi PHP API đổi. Panel chạy mỗi ngày và sau khi cập nhật. |
+| `snpanel-helper lsphp-ext-tools-remove` | Gỡ công cụ build mà panel đã cài (không gỡ thư viện mà module đã build cần); lần build sau tự cài lại. |
 
 Mọi lần gọi đều được ghi lại: `journalctl -t snpanel-helper`.
 

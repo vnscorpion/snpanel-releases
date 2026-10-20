@@ -309,30 +309,61 @@ c-client, thứ Debian 13 đã bỏ và không ai bảo trì.
 
 **Một lần build chạy thế nào.** Một job trong unit riêng
 (`snpanel-lsext-<job>`), mỗi lúc một job, không bao giờ trong lúc cập nhật
-panel hay build máy chủ web:
+panel hay build máy chủ web (job giữ chung khoá của cả hai, và build máy chủ
+web không bắt đầu khi đang build extension):
 
-1. Hỏi lsphp phiên bản và PHP API của nó (`php -n -i`).
+1. Hỏi lsphp phiên bản và PHP API của nó - trong sandbox bên dưới, bằng
+   `nobody` (xem *Không bao giờ bằng root*).
 2. Cài công cụ build nếu thiếu và giữ lại cho lần sau: `build-essential
    autoconf pkg-config xz-utils lsphpXY-dev`, thêm `libffi-dev` (FFI) hoặc
-   `libmcrypt-dev` (mcrypt). Các gói panel đã cài được liệt kê trên trang;
-   không gỡ gói nào.
-3. **Mã nguồn được root kiểm tra trước khi bất cứ thứ gì đọc nó.** FFI và
-   shmop: `php-<phiên bản>.tar.xz` đúng phiên bản của lsphp từ
-   `https://www.php.net/distributions/`, SHA-256 lấy từ danh sách phát hành
-   của php.net (`https://www.php.net/releases/index.php?json&version=<phiên bản>`),
-   cả hai chỉ qua HTTPS; tarball có hash khác bị xoá và việc build bị từ chối.
+   `libmcrypt-dev` (mcrypt). Mọi gói apt cài kèm đều được ghi lại và liệt kê
+   trên trang; nút **Gỡ công cụ build** gỡ chúng khi không cần build nữa
+   (không bao giờ gỡ thư viện mà module đã build cần, như `libmcrypt4`, và chỉ
+   khi apt không gỡ thêm gì khác), lần build hoặc build lại sau sẽ tự cài lại.
+   Panel không tự gỡ.
+3. **Mã nguồn được kiểm tra trước khi bất cứ thứ gì đọc nó.** FFI và shmop:
+   `php-<phiên bản>.tar.xz` đúng phiên bản của lsphp từ
+   `https://www.php.net/distributions/`, chỉ qua HTTPS, kiểm tra hai lần:
+   - SHA-256 so với danh sách phát hành của php.net
+     (`https://www.php.net/releases/index.php?json&version=<phiên bản>`);
+   - chữ ký tách rời (`php-<phiên bản>.tar.xz.asc`) bằng `gpgv`, chỉ với khoá
+     của những người phát hành nhánh đó. Dấu vân tay được ghim trong panel và
+     khoá đi kèm panel, mỗi nhánh một bộ khoá, xuất từ bộ khoá của php.net và
+     ghim bằng SHA-256:
+
+     | Nhánh | Khoá của người phát hành |
+     |---|---|
+     | 8.2 | `39B641343D8C104B2B146DC3F9C39DC0B9698544`, `E60913E4DF209907D8E30D96659A97C9CF2A795A`, `1198C0117593497A5EC5C199286AF1F9897469DC` |
+     | 8.3 | `1198C0117593497A5EC5C199286AF1F9897469DC`, `C28D937575603EB4ABB725861C0779DC5C0A9DE4`, `AFD8691FDAEDF03BDF6E460563F15A9B715376CA` |
+     | 8.4 | `AFD8691FDAEDF03BDF6E460563F15A9B715376CA`, `9D7F99A0CB8F05C8A6958D6256A97AF7600A39A6`, `0616E93D95AF471243E26761770426E17EBBB3DD` |
+     | 8.5 | `1198C0117593497A5EC5C199286AF1F9897469DC`, `49D9AF6BC72A80D6691719C8AA23F5BE9C7097D4`, `D95C03BC702BE9515344AE3374E44BC9067701A5` |
+
+     Bản vá mới của các nhánh này kiểm tra được mà không cần bản panel mới;
+     tarball không do họ ký bị từ chối, chữ ký bị xoá khỏi bộ nhớ đệm và không
+     build gì. Nhánh chưa ghim khoá (7.4, 8.0, 8.1) không được build.
+
    mcrypt: `https://pecl.php.net/get/mcrypt-1.0.9.tgz`, SHA-256
    `2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5` và kích
-   thước được ghim trong panel. Tarball đã kiểm tra được giữ ở
+   thước được ghim trong panel. Tarball và chữ ký đã kiểm tra được giữ ở
    `/var/lib/snpanel-lsext/cache` (root, 0600) và kiểm tra lại mỗi lần dùng.
-4. **Biên dịch không phải bằng root.** Giải nén, `phpize`, `./configure`,
-   `make` và lần nạp thử đầu tiên (`php -n -d extension=... -m`) chạy bằng
-   tài khoản hệ thống `snpanel-extbuild` (không đăng nhập, không home) trong
-   một unit systemd tạm: không có mạng (`PrivateNetwork`), không capability,
-   `NoNewPrivileges`, cả hệ thống chỉ đọc trừ thư mục riêng dưới
-   `/var/lib/snpanel-lsext-work`, `/tmp` riêng, tệp của panel và home của
-   khách hàng bị ẩn, giới hạn bộ nhớ (768 MB, hoặc nửa RAM trên máy nhỏ), mức
-   ưu tiên CPU và I/O thấp nhất, `make -j1` khi RAM dưới 3 GB.
+4. **Biên dịch không phải bằng root.** Kiểm tra chữ ký, giải nén, `phpize`,
+   `./configure`, `make` và lần nạp thử đầu tiên (`php -n -d extension=... -m`)
+   chạy bằng tài khoản hệ thống `snpanel-extbuild` (không đăng nhập, không
+   home) trong một unit systemd tạm:
+   - không mạng và không socket nào (`PrivateNetwork`,
+     `RestrictAddressFamilies=AF_INET` in an empty network namespace, `PrivateIPC`): không ra internet, không
+     chạm được socket Unix của máy (MariaDB, D-Bus, Dovecot);
+   - không capability, `NoNewPrivileges`, `SystemCallFilter=@system-service`;
+   - cả hệ thống chỉ đọc trừ thư mục riêng dưới `/var/lib/snpanel-lsext-work` -
+     thư mục do root tạo, là đường dẫn ghi được duy nhất và thư mục làm việc
+     của unit; mỗi bước vào thư mục mã nguồn từ bên trong sandbox
+     (`env --chdir`), sau khi root kiểm tra mọi thư mục trên đường đi là thư
+     mục thật, không phải liên kết;
+   - `/tmp` riêng, tệp của panel và home của khách hàng bị ẩn;
+   - giới hạn bộ nhớ (768 MB, hoặc nửa RAM trên máy nhỏ), ưu tiên CPU và I/O
+     thấp nhất, `make -j1` khi RAM dưới 3 GB;
+   - unit còn sót lại từ lần build bị ngắt được dừng trước khi tài khoản này
+     build tiếp.
 5. Root đọc lại module mà không đi theo bất kỳ liên kết nào, kiểm tra đó là
    tệp thường và là ELF shared object cho máy này, rồi cài vào `extension_dir`
    của lsphp (0644); `30-snpanel-<ext>.ini` trong
@@ -340,6 +371,11 @@ panel hay build máy chủ web:
    lsphp) bật nó lên. Nếu lsphp không nạp được với các tệp ini của nó, cả hai
    bị gỡ ra lại. lsphp khởi động lại nhẹ nhàng (`.lsphp_restart.txt` của
    LiteSpeed).
+
+**Không bao giờ bằng root.** Mỗi khi panel hỏi lsphp đang nạp gì - trang, các
+lần kiểm tra, `snpanel doctor` - CLI của lsphp chạy cùng các module của nó
+trong cùng loại sandbox, bằng `nobody`: mã của module không bao giờ chạy trong
+một tiến trình root.
 
 Khi LiteSpeed có gói cho extension đó (`lsphpXY-imap` trên Debian 12), nút
 **Cài và bật** cài gói đó thay vì build.
@@ -357,24 +393,31 @@ không được cho phép. `snpanel doctor` cảnh báo khi giá trị không ph
 **Giữ qua các lần nâng cấp lsphp.** Panel ghi lại mỗi lần build ở
 `/var/lib/snpanel-lsext/state.json` (root): phiên bản lsphp, PHP API của nó
 (`PHP Extension`, và `PHP Extension Build` như `API20240924,NTS`), mã nguồn và
-SHA-256, SHA-256 của module. Nâng cấp bản vá (8.4.26 lên 8.4.27) giữ nguyên
-API: module chỉ cần vẫn nạp được. Nâng cấp bản phụ đổi API và thư mục
-extension: module được build lại, tệp ini của nó gỡ ra trong lúc chờ để lsphp
-không cảnh báo thiếu tệp. Việc kiểm tra này chạy mỗi ngày một lần (panel), sau
-khi cập nhật panel, trong bước php của build máy chủ web và sau khi cập nhật hệ
-điều hành từ trang Cập nhật. Build lỗi, hoặc module mà lsphp không nạp được,
-hiện ở chuông thông báo và được gửi qua addon Thông báo (*Một extension lsphp
-do panel build cần được kiểm tra*); build đã lỗi với đúng lsphp đó thì không
-tự thử lại. `snpanel doctor` báo cùng nội dung (`lsphp-extensions`).
+SHA-256, SHA-256 của module. Khi lsphp lên một bản phát hành PHP khác:
+
+- **bản vá** (8.4.26 lên 8.4.27) giữ nguyên API, nhưng FFI và shmop lấy từ mã
+  nguồn của bản phát hành đó, nên được build lại từ tarball mới (để bản sửa
+  lỗi vào được module); mã nguồn của mcrypt là của PECL, không đổi theo bản
+  vá, nên chỉ cần vẫn nạp được;
+- **bản phụ** đổi API và thư mục extension: mọi module được build lại, tệp ini
+  của nó gỡ ra trong lúc chờ để lsphp không cảnh báo thiếu tệp.
+
+Việc kiểm tra này chạy mỗi ngày một lần (panel), sau khi cập nhật panel, trong
+bước php của build máy chủ web và sau khi cập nhật hệ điều hành từ trang Cập
+nhật. Build lỗi, hoặc module mà lsphp không nạp được, hiện ở chuông thông báo
+và được gửi qua addon Thông báo (*Một extension lsphp do panel build cần được
+kiểm tra*); build đã lỗi với đúng lsphp đó thì không tự thử lại.
+`snpanel doctor` báo cùng nội dung (`lsphp-extensions`).
 
 Từ dòng lệnh (root):
 
 ```bash
-snpanel-helper lsphp-ext-status 8.4        # từng extension: nguồn, đang nạp, bản ghi (JSON)
+snpanel-helper lsphp-ext-status 8.4        # từng extension: nguồn, đang nạp, bản ghi (JSON); không thay đổi gì
 snpanel-helper lsphp-ext-build 8.4 ffi     # xếp một lần build (ffi, shmop, mcrypt; imap khi có gói)
 snpanel-helper lsphp-ext-log 8.4 ffi       # nhật ký của nó
 snpanel-helper lsphp-ext-remove 8.4 ffi    # gỡ tệp ini và module, không build lại
 snpanel-helper lsphp-ext-check             # việc kiểm tra hằng ngày làm
+snpanel-helper lsphp-ext-tools-remove      # gỡ công cụ build mà panel đã cài
 ```
 
 ## Các khoá trong build.conf

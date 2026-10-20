@@ -31,11 +31,12 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 **Extension lsphp mà LiteSpeed không đóng gói (Debian)**
 
 - Trang PHP của máy chạy LiteSpeed có thẻ *lsphp X.Y: extension LiteSpeed không đóng gói*: FFI, shmop và mcrypt được build cho lsphp với nút **Build và bật**, theo dõi tiến trình và nhật ký build, và **Gỡ**. IMAP: gói `lsphpXY-imap` của LiteSpeed trên Debian 12; trên Debian 13 không có (thư viện c-client đã bị bỏ và không ai bảo trì).
-- Mã nguồn được kiểm tra trước khi dùng: tarball PHP đúng phiên bản của lsphp từ php.net, SHA-256 lấy từ danh sách phát hành của php.net qua HTTPS; mcrypt là PECL 1.0.9 với SHA-256 ghim trong panel.
-- Không biên dịch bằng root: giải nén, `phpize`, `configure`, `make` và lần nạp thử chạy bằng tài khoản `snpanel-extbuild` trong sandbox systemd (không mạng, không capability, hệ thống chỉ đọc, ưu tiên thấp, `-j1` trên máy RAM nhỏ). Root chỉ cài tệp `.so` sau khi kiểm tra đó là ELF shared object.
+- Mã nguồn được kiểm tra trước khi dùng: tarball PHP đúng phiên bản của lsphp từ php.net, SHA-256 lấy từ danh sách phát hành của php.net qua HTTPS, và chữ ký `.asc` kiểm tra bằng `gpgv` với khoá của người phát hành từng nhánh (8.2 - 8.5), dấu vân tay ghim trong panel; chữ ký không khớp thì từ chối. mcrypt là PECL 1.0.9 với SHA-256 ghim trong panel.
+- Không biên dịch bằng root: kiểm tra chữ ký, giải nén, `phpize`, `configure`, `make` và lần nạp thử chạy bằng tài khoản `snpanel-extbuild` trong sandbox systemd (không mạng, không socket, không capability, lọc system call, hệ thống chỉ đọc, ưu tiên thấp, `-j1` trên máy RAM nhỏ). Root chỉ cài tệp `.so` sau khi kiểm tra đó là ELF shared object. Mỗi lần panel hỏi lsphp đang nạp gì (trang, kiểm tra, `snpanel doctor`) cũng chạy trong sandbox, bằng `nobody`.
 - FFI mặc định `ffi.enable=preload`: script của website không gọi được hàm C.
-- Giữ qua các lần nâng cấp lsphp: bản ghi PHP API của từng lần build; kiểm tra mỗi ngày, sau khi cập nhật panel, trong bước php của `snpanel build` và sau cập nhật hệ điều hành; build lại khi PHP API đổi. Lỗi hiện ở chuông thông báo, gửi qua addon Thông báo và `snpanel doctor` (`lsphp-extensions`).
-- Lệnh mới: `snpanel-helper lsphp-ext-status|build|remove|log|check`. AlmaLinux không đổi: lsphp của Remi đã có các gói này.
+- Giữ qua các lần nâng cấp lsphp: bản ghi phiên bản và PHP API của từng lần build; kiểm tra mỗi ngày, sau khi cập nhật panel, trong bước php của `snpanel build` và sau cập nhật hệ điều hành; FFI và shmop build lại khi lsphp lên bản phát hành khác (cả bản vá), mọi extension khi PHP API đổi. Lỗi hiện ở chuông thông báo, gửi qua addon Thông báo và `snpanel doctor` (`lsphp-extensions`).
+- Nút **Gỡ công cụ build** gỡ các gói panel đã cài để build khi không cần nữa; lần build sau tự cài lại.
+- Lệnh mới: `snpanel-helper lsphp-ext-status|build|remove|log|check|tools-remove`. AlmaLinux không đổi: lsphp của Remi đã có các gói này.
 
 **Sửa lỗi tìm thấy trên Debian 13**
 
@@ -84,11 +85,12 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 **lsphp extensions LiteSpeed does not package (Debian)**
 
 - The PHP page of a LiteSpeed server has a card, *lsphp X.Y: extensions LiteSpeed does not package*: FFI, shmop and mcrypt are built for lsphp with **Build and enable**, followed with their progress and build log, and **Remove**. IMAP: LiteSpeed's `lsphpXY-imap` package on Debian 12; not offered on Debian 13 (its c-client library was dropped and nobody maintains it).
-- The source is verified before use: the PHP tarball of exactly lsphp's release from php.net, its SHA-256 from php.net's release list over HTTPS; mcrypt is PECL 1.0.9 with its SHA-256 pinned in the panel.
-- Never compiled as root: unpacking, `phpize`, `configure`, `make` and a test load run as the `snpanel-extbuild` account in a systemd sandbox (no network, no capabilities, a read-only system, low priority, `-j1` on a small server). Root only installs the `.so` after checking it is an ELF shared object.
+- The source is verified before use: the PHP tarball of exactly lsphp's release from php.net, its SHA-256 from php.net's release list over HTTPS, and its `.asc` signature checked with `gpgv` against the branch's release managers' keys (8.2 to 8.5), their fingerprints pinned in the panel; a signature that does not verify is refused. mcrypt is PECL 1.0.9 with its SHA-256 pinned in the panel.
+- Never compiled as root: the signature check, unpacking, `phpize`, `configure`, `make` and a test load run as the `snpanel-extbuild` account in a systemd sandbox (no network, no sockets, no capabilities, a system call filter, a read-only system, low priority, `-j1` on a small server). Root only installs the `.so` after checking it is an ELF shared object. Every look at what lsphp loads (the page, the checks, `snpanel doctor`) runs in the sandbox too, as `nobody`.
 - FFI defaults to `ffi.enable=preload`: a website's own scripts cannot call C functions.
-- Kept across lsphp's upgrades: each build's PHP API is recorded; a check daily, after a panel update, in `snpanel build`'s php step and after an OS update builds again when the API changed. Failures show in the bell, through the Notifications addon and in `snpanel doctor` (`lsphp-extensions`).
-- New commands: `snpanel-helper lsphp-ext-status|build|remove|log|check`. AlmaLinux is unchanged: Remi's lsphp has these packages.
+- Kept across lsphp's upgrades: each build's PHP release and API are recorded; a check daily, after a panel update, in `snpanel build`'s php step and after an OS update builds FFI and shmop again when lsphp moves to another PHP release (a patch release too) and every extension when the API changed. Failures show in the bell, through the Notifications addon and in `snpanel doctor` (`lsphp-extensions`).
+- **Remove build tools** removes the packages the panel installed to build when they are no longer wanted; a later build installs them again.
+- New commands: `snpanel-helper lsphp-ext-status|build|remove|log|check|tools-remove`. AlmaLinux is unchanged: Remi's lsphp has these packages.
 
 **Fixes found on Debian 13**
 
