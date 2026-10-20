@@ -811,8 +811,10 @@ snpanel doctor --enterprise-readiness   # chỉ kiểm: máy có chuyển lên C
 - Các mục gồm hệ điều hành và CPU, cấu hình và khoá bí mật của panel, tường
   lửa, SELinux, phpMyAdmin, web stack (`web-stack`, `web-live`, `web-table`,
   `webwatch`, `lsws-licence`), sự cách ly giữa các tài khoản, đường dẫn và
-  quyền tệp của panel, giới hạn tài nguyên, lồng của Terminal, Valkey và phần
-  siết máy chủ.
+  quyền tệp của panel, giới hạn tài nguyên, lồng của Terminal, Valkey, phần
+  siết máy chủ và các extension lsphp do panel build (`lsphp-extensions`:
+  extension không nạp được, extension build cho PHP API khác, FFI không chỉ
+  cho preload).
 - Mỗi kết quả là `ok`, `note`, `warn` hoặc `FAIL`, kèm việc cần làm.
 - **Mã thoát:** 0 khi không có vấn đề, 1 khi có cảnh báo, 2 khi có lỗi - dùng
   được cho hệ thống giám sát.
@@ -1027,8 +1029,8 @@ không có lệnh con cho chúng. Muốn tự động hoá thì có:
 
 `snpanel-helper` là helper chạy quyền root của panel. Panel gọi nó qua
 `/run/snpanel/helper.sock`; root chạy trực tiếp một thao tác bằng
-`snpanel-helper <thao tác>`. `snpanel-helper --help` liệt kê tất cả (292 thao
-tác ở v2.0.0). Phần lớn là việc riêng của panel: chỉ nên tự chạy các thao tác
+`snpanel-helper <thao tác>`. `snpanel-helper --help` liệt kê tất cả (297 thao
+tác ở v2.1.0). Phần lớn là việc riêng của panel: chỉ nên tự chạy các thao tác
 sau.
 
 | Lệnh | Việc làm |
@@ -1040,6 +1042,11 @@ sau.
 | `snpanel-helper mail-reconfigure` | Ghi lại file của Dovecot, Exim và webmail cho bản này (addon Email). |
 | `snpanel-helper clamav-db-status` | Bộ dữ liệu nhận diện mã độc đang dùng, dạng JSON (addon Quét mã độc). |
 | `snpanel-helper malware-sigs-update` | Cập nhật dữ liệu nhận diện của ClamAV và LMD ngay (addon Quét mã độc). |
+| `snpanel-helper lsphp-ext-status [<phiên bản>]` | Các extension lsphp mà panel build trên lsphp Debian của LiteSpeed (ffi, shmop, mcrypt; imap khi LiteSpeed có gói), dạng JSON: có phiên bản thì cho từng extension nguồn, lsphp có nạp không và bản ghi build; không có thì các bản ghi ([litespeed.vi.md](litespeed.vi.md#extension-lsphp-ma-litespeed-khong-dong-goi)). |
+| `snpanel-helper lsphp-ext-build <phiên bản> <ext>` | Build một extension từ mã nguồn đã kiểm tra trong sandbox (hoặc cài gói của LiteSpeed) rồi bật lên, trong unit riêng (`snpanel-lsext-<job>`). Bị từ chối trên AlmaLinux (gói của Remi) và với imap trên Debian 13 (không có). |
+| `snpanel-helper lsphp-ext-log <phiên bản> <ext>` | Nhật ký của lần build gần nhất. |
+| `snpanel-helper lsphp-ext-remove <phiên bản> <ext>` | Gỡ module và tệp ini của nó (hoặc gói của LiteSpeed); không build lại. lsphp khởi động lại nhẹ nhàng. |
+| `snpanel-helper lsphp-ext-check` | Kiểm tra từng extension đã build với lsphp hiện tại: vẫn nạp được sau bản vá, build lại sau bản phụ đổi PHP API. Panel chạy mỗi ngày và sau khi cập nhật. |
 
 Mọi lần gọi đều được ghi lại: `journalctl -t snpanel-helper`.
 

@@ -274,14 +274,108 @@ Các lệnh giống hệt. Bên dưới thì khác:
 | ModSecurity | `mod_security` | `libapache2-mod-security2`; file engine là `/etc/apache2/modsec/engine.conf` |
 | Gỡ nginx | `dnf remove` (giữ `nginx-filesystem`) | `apt-get remove` (không purge: giữ `/etc/nginx` để quay về) |
 
-- Các phần mở rộng PHP-FPM mà LiteSpeed không đóng gói cho lsphp (FFI,
-  shmop, và mcrypt trên 8.4) được ghi trong log và kế hoạch của job
-  (`lsphp_gaps`); dưới LiteSpeed các site chạy không có chúng.
+- Các extension PHP-FPM mà LiteSpeed không đóng gói cho lsphp (FFI, shmop,
+  mcrypt) được ghi trong log và kế hoạch của job (`lsphp_gaps`). Panel có
+  thể build chúng cho lsphp: xem phần dưới.
 - **Trial key từ trước khi cài lại máy.** LiteSpeed cấp mỗi IP hai lần trial.
   Máy cài lại mà IP đã có trial còn hạn: đặt key đã lưu ở
   `/usr/local/lsws/conf/trial.key` (root, 0600) trước lần build đầu tiên; bước
   webserver cài LiteSpeed bằng key đó và không xin trial mới. Key không hợp lệ
   thì bước cài dừng lại; không có trial nào khác được xin.
+
+<a id="extension-lsphp-ma-litespeed-khong-dong-goi"></a>
+### Extension lsphp mà LiteSpeed không đóng gói
+
+Kho Debian của LiteSpeed (bookworm và trixie) không có `lsphpXY-ffi`,
+`lsphpXY-shmop` hay `lsphpXY-mcrypt`, và trixie cũng không có `lsphpXY-imap`.
+Ở **Máy chủ web & PHP > PHP**, máy chạy LiteSpeed có thêm thẻ cho phiên bản
+đang chọn, *lsphp X.Y: extension LiteSpeed không đóng gói*, với trạng thái của
+từng extension (chưa build, đang build và đang ở bước nào, đã build và đang
+nạp, build lỗi kèm nhật ký, không có và lý do), nút **Build và bật**, **Gỡ** và
+**Nhật ký build**. Chỉ quản trị viên; mọi lần build và gỡ đều vào nhật ký kiểm
+tra.
+
+| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 |
+|---|---|---|---|
+| ffi | gói `phpXY-php-ffi` của Remi | build | build |
+| shmop | gói `phpXY-php-process` của Remi | build | build |
+| mcrypt | gói `phpXY-php-pecl-mcrypt` của Remi | build (PECL 1.0.9, PHP 7.2 đến 8.5) | build (PECL 1.0.9, PHP 7.2 đến 8.5) |
+| imap | gói `phpXY-php-imap` của Remi (8.4: `pecl-imap`) | gói `lsphpXY-imap` của LiteSpeed | **không có** |
+
+Trên AlmaLinux không build gì: lsphp là của Remi và dùng chung `php.d` với
+PHP-FPM, nên trang chỉ nêu tên gói Remi của extension mà lsphp chưa nạp. IMAP
+không bao giờ được build: từ PHP 8.4 nó nằm ở PECL và dựa trên thư viện UW
+c-client, thứ Debian 13 đã bỏ và không ai bảo trì.
+
+**Một lần build chạy thế nào.** Một job trong unit riêng
+(`snpanel-lsext-<job>`), mỗi lúc một job, không bao giờ trong lúc cập nhật
+panel hay build máy chủ web:
+
+1. Hỏi lsphp phiên bản và PHP API của nó (`php -n -i`).
+2. Cài công cụ build nếu thiếu và giữ lại cho lần sau: `build-essential
+   autoconf pkg-config xz-utils lsphpXY-dev`, thêm `libffi-dev` (FFI) hoặc
+   `libmcrypt-dev` (mcrypt). Các gói panel đã cài được liệt kê trên trang;
+   không gỡ gói nào.
+3. **Mã nguồn được root kiểm tra trước khi bất cứ thứ gì đọc nó.** FFI và
+   shmop: `php-<phiên bản>.tar.xz` đúng phiên bản của lsphp từ
+   `https://www.php.net/distributions/`, SHA-256 lấy từ danh sách phát hành
+   của php.net (`https://www.php.net/releases/index.php?json&version=<phiên bản>`),
+   cả hai chỉ qua HTTPS; tarball có hash khác bị xoá và việc build bị từ chối.
+   mcrypt: `https://pecl.php.net/get/mcrypt-1.0.9.tgz`, SHA-256
+   `2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5` và kích
+   thước được ghim trong panel. Tarball đã kiểm tra được giữ ở
+   `/var/lib/snpanel-lsext/cache` (root, 0600) và kiểm tra lại mỗi lần dùng.
+4. **Biên dịch không phải bằng root.** Giải nén, `phpize`, `./configure`,
+   `make` và lần nạp thử đầu tiên (`php -n -d extension=... -m`) chạy bằng
+   tài khoản hệ thống `snpanel-extbuild` (không đăng nhập, không home) trong
+   một unit systemd tạm: không có mạng (`PrivateNetwork`), không capability,
+   `NoNewPrivileges`, cả hệ thống chỉ đọc trừ thư mục riêng dưới
+   `/var/lib/snpanel-lsext-work`, `/tmp` riêng, tệp của panel và home của
+   khách hàng bị ẩn, giới hạn bộ nhớ (768 MB, hoặc nửa RAM trên máy nhỏ), mức
+   ưu tiên CPU và I/O thấp nhất, `make -j1` khi RAM dưới 3 GB.
+5. Root đọc lại module mà không đi theo bất kỳ liên kết nào, kiểm tra đó là
+   tệp thường và là ELF shared object cho máy này, rồi cài vào `extension_dir`
+   của lsphp (0644); `30-snpanel-<ext>.ini` trong
+   `/usr/local/lsws/lsphpXY/etc/php/X.Y/mods-available` (thư mục quét của
+   lsphp) bật nó lên. Nếu lsphp không nạp được với các tệp ini của nó, cả hai
+   bị gỡ ra lại. lsphp khởi động lại nhẹ nhàng (`.lsphp_restart.txt` của
+   LiteSpeed).
+
+Khi LiteSpeed có gói cho extension đó (`lsphpXY-imap` trên Debian 12), nút
+**Cài và bật** cài gói đó thay vì build.
+
+**FFI chỉ cho preload.** `30-snpanel-ffi.ini` đặt `ffi.enable=preload`: FFI
+chạy được cho mã do `opcache.preload` nạp và trong dòng lệnh PHP, còn script
+của website không gọi được `FFI::cdef()`. Quản trị viên có thể đặt
+`ffi.enable=true` trong một tệp ini của riêng mình xếp sau tệp của panel (ví
+dụ `99-local-ffi.ini` trong cùng thư mục; panel không bao giờ ghi tệp này).
+Khi đó PHP của mọi website gọi được bất kỳ hàm thư viện C nào bằng tài khoản
+của nó - vượt qua `disable_functions` và `open_basedir` - điều shared hosting
+không được cho phép. `snpanel doctor` cảnh báo khi giá trị không phải
+`preload`.
+
+**Giữ qua các lần nâng cấp lsphp.** Panel ghi lại mỗi lần build ở
+`/var/lib/snpanel-lsext/state.json` (root): phiên bản lsphp, PHP API của nó
+(`PHP Extension`, và `PHP Extension Build` như `API20240924,NTS`), mã nguồn và
+SHA-256, SHA-256 của module. Nâng cấp bản vá (8.4.26 lên 8.4.27) giữ nguyên
+API: module chỉ cần vẫn nạp được. Nâng cấp bản phụ đổi API và thư mục
+extension: module được build lại, tệp ini của nó gỡ ra trong lúc chờ để lsphp
+không cảnh báo thiếu tệp. Việc kiểm tra này chạy mỗi ngày một lần (panel), sau
+khi cập nhật panel, trong bước php của build máy chủ web và sau khi cập nhật hệ
+điều hành từ trang Cập nhật. Build lỗi, hoặc module mà lsphp không nạp được,
+hiện ở chuông thông báo và được gửi qua addon Thông báo (*Một extension lsphp
+do panel build cần được kiểm tra*); build đã lỗi với đúng lsphp đó thì không
+tự thử lại. `snpanel doctor` báo cùng nội dung (`lsphp-extensions`).
+
+Từ dòng lệnh (root):
+
+```bash
+snpanel-helper lsphp-ext-status 8.4        # từng extension: nguồn, đang nạp, bản ghi (JSON)
+snpanel-helper lsphp-ext-build 8.4 ffi     # xếp một lần build (ffi, shmop, mcrypt; imap khi có gói)
+snpanel-helper lsphp-ext-log 8.4 ffi       # nhật ký của nó
+snpanel-helper lsphp-ext-remove 8.4 ffi    # gỡ tệp ini và module, không build lại
+snpanel-helper lsphp-ext-check             # việc kiểm tra hằng ngày làm
+```
 
 ## Các khoá trong build.conf
 

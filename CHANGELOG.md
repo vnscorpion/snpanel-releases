@@ -21,12 +21,21 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
   - site và conf mặc định của Debian (000-default, phpmyadmin.conf ...) thành file chỉ có chú thích;
   - `www-data` nằm trong nhóm của từng khách hàng khi home được cách ly (0750).
 - lsphp từ kho apt của LiteSpeed, khoá ký kèm theo panel và ghim SHA-256; mỗi phiên bản PHP là gói `lsphpXY`.
-  - Phần mở rộng của PHP-FPM được ánh xạ sang `lsphpXY-*`. LiteSpeed không đóng gói FFI, shmop (8.3, 8.4) và mcrypt (8.4): job ghi lại các chỗ thiếu này.
+  - Phần mở rộng của PHP-FPM được ánh xạ sang `lsphpXY-*`. LiteSpeed không đóng gói FFI, shmop và mcrypt: job ghi lại các chỗ thiếu này, và panel build được chúng (xem dưới).
   - `php.ini` của lsphp nhận các thiết lập của panel; các file ini của panel (OPcache ...) được liên kết vào thư mục quét của lsphp, cả khi trang PHP ghi file đó sau khi build.
   - Mỗi tên miền một phiên bản PHP, chạy bằng user của khách hàng (suEXEC), đã kiểm trên máy thật.
 - WAF: `libapache2-mod-security2` với OWASP CRS 4.29 ghim; LiteSpeed đọc cùng bộ luật.
 - nginx được gỡ (remove, không purge: giữ `/etc/nginx` để quay về). Gói certbot cho nginx đi cùng nginx mà không hỏi lại.
 - Một trial key đặt sẵn ở `/usr/local/lsws/conf/trial.key` trước lần cài LiteSpeed đầu tiên được dùng lại, không xin trial mới (máy cài lại mà IP đã có trial).
+
+**Extension lsphp mà LiteSpeed không đóng gói (Debian)**
+
+- Trang PHP của máy chạy LiteSpeed có thẻ *lsphp X.Y: extension LiteSpeed không đóng gói*: FFI, shmop và mcrypt được build cho lsphp với nút **Build và bật**, theo dõi tiến trình và nhật ký build, và **Gỡ**. IMAP: gói `lsphpXY-imap` của LiteSpeed trên Debian 12; trên Debian 13 không có (thư viện c-client đã bị bỏ và không ai bảo trì).
+- Mã nguồn được kiểm tra trước khi dùng: tarball PHP đúng phiên bản của lsphp từ php.net, SHA-256 lấy từ danh sách phát hành của php.net qua HTTPS; mcrypt là PECL 1.0.9 với SHA-256 ghim trong panel.
+- Không biên dịch bằng root: giải nén, `phpize`, `configure`, `make` và lần nạp thử chạy bằng tài khoản `snpanel-extbuild` trong sandbox systemd (không mạng, không capability, hệ thống chỉ đọc, ưu tiên thấp, `-j1` trên máy RAM nhỏ). Root chỉ cài tệp `.so` sau khi kiểm tra đó là ELF shared object.
+- FFI mặc định `ffi.enable=preload`: script của website không gọi được hàm C.
+- Giữ qua các lần nâng cấp lsphp: bản ghi PHP API của từng lần build; kiểm tra mỗi ngày, sau khi cập nhật panel, trong bước php của `snpanel build` và sau cập nhật hệ điều hành; build lại khi PHP API đổi. Lỗi hiện ở chuông thông báo, gửi qua addon Thông báo và `snpanel doctor` (`lsphp-extensions`).
+- Lệnh mới: `snpanel-helper lsphp-ext-status|build|remove|log|check`. AlmaLinux không đổi: lsphp của Remi đã có các gói này.
 
 **Sửa lỗi tìm thấy trên Debian 13**
 
@@ -35,6 +44,7 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 - ModSecurity cho Apache: file `unicode.mapping` được ghi đường dẫn tuyệt đối (trước đó `apache2ctl -t` từ chối).
 - Thư của `exim4-base` (dọn dẹp hằng ngày của Debian) không còn bị dừng giữa chừng khi dịch vụ kết thúc ("Failed writing transport results to pipe" trong paniclog, cảnh báo paniclog lặp lại mỗi ngày).
 - File include tuỳ chỉnh của nginx và luật WAF riêng của site mới được ghi 0640; thư mục `/etc/nginx/snpanel/custom` giữ 2770 sau mỗi lần cập nhật (`snpanel doctor` không còn cảnh báo web-file-modes).
+- Trên stack Apache/LiteSpeed, các file luật WAF riêng của site mới (`rules.conf` ...) cũng được ghi 0640, nhóm của panel, ngay khi tạo site (trước đây 0644 cho đến lần cập nhật sau).
 
 **Lệnh**
 
@@ -64,12 +74,21 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
   - Debian's stock sites and snippets (000-default, phpmyadmin.conf ...) become comment-only files;
   - `www-data` is in each customer's group once the homes are isolated (0750).
 - lsphp comes from LiteSpeed's apt repository, its signing key shipped with the panel and pinned by SHA-256; each PHP version is an `lsphpXY` package.
-  - PHP-FPM's extensions are mapped onto `lsphpXY-*` packages. LiteSpeed packages no FFI and shmop (8.3, 8.4) and no mcrypt (8.4): the job records these gaps.
+  - PHP-FPM's extensions are mapped onto `lsphpXY-*` packages. LiteSpeed packages no FFI, shmop or mcrypt: the job records these gaps, and the panel can build them (below).
   - lsphp's `php.ini` gets the panel's settings, and the panel's ini files (OPcache ...) are linked into lsphp's scan directory, also when the PHP pages write one after the build.
   - A PHP version per domain, run as the customer (suEXEC), checked on a real server.
 - WAF: `libapache2-mod-security2` with the pinned OWASP CRS 4.29; LiteSpeed reads the same rules.
 - nginx is removed (not purged: `/etc/nginx` stays for the way back). certbot's nginx plugin goes with it without a question.
 - A trial key put in `/usr/local/lsws/conf/trial.key` before LiteSpeed's first install is used instead of asking for a new trial (a reinstalled server whose IP already has one).
+
+**lsphp extensions LiteSpeed does not package (Debian)**
+
+- The PHP page of a LiteSpeed server has a card, *lsphp X.Y: extensions LiteSpeed does not package*: FFI, shmop and mcrypt are built for lsphp with **Build and enable**, followed with their progress and build log, and **Remove**. IMAP: LiteSpeed's `lsphpXY-imap` package on Debian 12; not offered on Debian 13 (its c-client library was dropped and nobody maintains it).
+- The source is verified before use: the PHP tarball of exactly lsphp's release from php.net, its SHA-256 from php.net's release list over HTTPS; mcrypt is PECL 1.0.9 with its SHA-256 pinned in the panel.
+- Never compiled as root: unpacking, `phpize`, `configure`, `make` and a test load run as the `snpanel-extbuild` account in a systemd sandbox (no network, no capabilities, a read-only system, low priority, `-j1` on a small server). Root only installs the `.so` after checking it is an ELF shared object.
+- FFI defaults to `ffi.enable=preload`: a website's own scripts cannot call C functions.
+- Kept across lsphp's upgrades: each build's PHP API is recorded; a check daily, after a panel update, in `snpanel build`'s php step and after an OS update builds again when the API changed. Failures show in the bell, through the Notifications addon and in `snpanel doctor` (`lsphp-extensions`).
+- New commands: `snpanel-helper lsphp-ext-status|build|remove|log|check`. AlmaLinux is unchanged: Remi's lsphp has these packages.
 
 **Fixes found on Debian 13**
 
@@ -78,6 +97,7 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 - ModSecurity for Apache: `unicode.mapping` is named by its absolute path (`apache2ctl -t` refused the relative one).
 - The mail Debian's daily `exim4-base` housekeeping sends is no longer cut off when the service ends ("Failed writing transport results to pipe" in the paniclog, and a paniclog alert that came back every day).
 - A new site's nginx custom include and WAF rules are written 0640, and `/etc/nginx/snpanel/custom` stays 2770 across updates (`snpanel doctor` no longer warns about web-file-modes).
+- On the Apache and LiteSpeed stack a new site's WAF rule files (`rules.conf` ...) are written 0640 to the panel's group too, when the site is made (they were 0644 until the next update).
 
 **Commands**
 

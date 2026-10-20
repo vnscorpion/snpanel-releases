@@ -276,15 +276,108 @@ The commands are the same. Under the hood:
 | ModSecurity | `mod_security` | `libapache2-mod-security2`; the engine file is `/etc/apache2/modsec/engine.conf` |
 | nginx removal | `dnf remove` (keeps `nginx-filesystem`) | `apt-get remove` (not purge: `/etc/nginx` stays for the way back) |
 
-- PHP-FPM extensions LiteSpeed does not package for lsphp (FFI, shmop, and
-  mcrypt on 8.4) are listed in the job's log and plan (`lsphp_gaps`); the
-  sites run without them under LiteSpeed.
+- PHP-FPM extensions LiteSpeed does not package for lsphp (FFI, shmop,
+  mcrypt) are listed in the job's log and plan (`lsphp_gaps`). The panel can
+  build them for lsphp: see below.
 - **A trial key from before a reinstall.** LiteSpeed gives each IP two
   trials. On a reinstalled server whose IP already has a valid trial, put the
   saved key at `/usr/local/lsws/conf/trial.key` (root, 0600) before the
   first build: the webserver step installs LiteSpeed with it and asks for no
   new trial. A key that is not valid stops the install; no other trial is
   asked for.
+
+### lsphp extensions LiteSpeed does not package
+
+LiteSpeed's Debian repository (bookworm and trixie) has no `lsphpXY-ffi`,
+`lsphpXY-shmop` or `lsphpXY-mcrypt`, and trixie has no `lsphpXY-imap` either.
+On **Web Server & PHP > PHP**, a LiteSpeed server shows a card for the
+chosen version, *lsphp X.Y: extensions LiteSpeed does not package*, with
+each one's state (not built, building and its step, built and loaded, build
+failed with its log, not offered and why), **Build and enable**, **Remove**
+and **Build log**. Administrators only; every build and removal is in the
+audit log.
+
+| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 |
+|---|---|---|---|
+| ffi | Remi's `phpXY-php-ffi` | built | built |
+| shmop | Remi's `phpXY-php-process` | built | built |
+| mcrypt | Remi's `phpXY-php-pecl-mcrypt` | built (PECL 1.0.9, PHP 7.2 to 8.5) | built (PECL 1.0.9, PHP 7.2 to 8.5) |
+| imap | Remi's `phpXY-php-imap` (8.4: `pecl-imap`) | LiteSpeed's `lsphpXY-imap` package | **not offered** |
+
+On AlmaLinux nothing is built: lsphp is Remi's and shares PHP-FPM's
+`php.d`, so the page only names the Remi package of one lsphp does not
+load. IMAP is never built: since PHP 8.4 it lives in PECL on top of the UW
+c-client library, which Debian 13 dropped and nobody maintains.
+
+**How a build runs.** A job in a unit of its own (`snpanel-lsext-<job>`),
+one at a time, never during a panel update or a web-stack build:
+
+1. lsphp is asked its release and PHP API (`php -n -i`).
+2. The build tools are installed when missing and kept, as the next build
+   needs them: `build-essential autoconf pkg-config xz-utils lsphpXY-dev`,
+   and `libffi-dev` (FFI) or `libmcrypt-dev` (mcrypt). The packages the
+   panel added are listed on the page; nothing is ever removed.
+3. **The source, verified by root before anything reads it.** FFI and
+   shmop: `php-<release>.tar.xz` of exactly lsphp's release from
+   `https://www.php.net/distributions/`, its SHA-256 from php.net's release
+   list (`https://www.php.net/releases/index.php?json&version=<release>`),
+   both HTTPS only; a tarball with another hash is deleted and the build
+   refused. mcrypt: `https://pecl.php.net/get/mcrypt-1.0.9.tgz`, SHA-256
+   `2a9ef0817d3bf677f6d7baf8e325629a2758974735d8abad6566384788d424a5` and
+   its size pinned in the panel. Verified tarballs are kept in
+   `/var/lib/snpanel-lsext/cache` (root, 0600) and checked again on every use.
+4. **Compiled as nobody's root.** Unpacking, `phpize`, `./configure`, `make`
+   and a first test load (`php -n -d extension=... -m`) run as the system
+   account `snpanel-extbuild` (no login, no home) in a transient systemd
+   unit: no network (`PrivateNetwork`), no capabilities, `NoNewPrivileges`,
+   the whole system read-only but its own folder under
+   `/var/lib/snpanel-lsext-work`, its own `/tmp`, the panel's files and the
+   customers' homes out of sight, memory capped (768 MB, or half the RAM on
+   a small server), the lowest CPU and I/O priority, `make -j1` below 3 GB
+   of RAM.
+5. Root reads the module back without following any link, checks it is a
+   regular file and an ELF shared object for this machine, and installs it
+   into lsphp's `extension_dir` (0644); `30-snpanel-<ext>.ini` in
+   `/usr/local/lsws/lsphpXY/etc/php/X.Y/mods-available` (lsphp's scan
+   folder) enables it. If lsphp does not load it with its own ini files, both
+   are taken away again. lsphp restarts gracefully (LiteSpeed's
+   `.lsphp_restart.txt`).
+
+Where LiteSpeed does package one (Debian 12's `lsphpXY-imap`), **Install and
+enable** installs that package instead.
+
+**FFI is preload-only.** `30-snpanel-ffi.ini` sets `ffi.enable=preload`:
+FFI works for code loaded by `opcache.preload` and in PHP's command line, and
+a website's own scripts cannot call `FFI::cdef()`. An administrator may set
+`ffi.enable=true` in an ini file of their own that sorts after the panel's
+(for example `99-local-ffi.ini` in the same folder; the panel never writes
+it). Then every website's PHP can call any C library function as its
+account - past `disable_functions` and `open_basedir` - which shared hosting
+must not allow. `snpanel doctor` warns when it is not `preload`.
+
+**Kept across lsphp's upgrades.** The panel records each build in
+`/var/lib/snpanel-lsext/state.json` (root): the lsphp release, its PHP API
+(`PHP Extension`, and `PHP Extension Build` such as `API20240924,NTS`), the
+source and its SHA-256, the module's SHA-256. A patch upgrade (8.4.26 to
+8.4.27) keeps the API: the module only has to still load. A minor one
+changes the API and the extension folder: the module is built again, its ini
+taken away until then so lsphp does not warn about a missing file. This
+check runs once a day (the panel), after a panel update, in the web-stack
+build's php step and after an OS update from the Updates page. A build that
+fails, or a module lsphp does not load, shows in the bell and is told through
+the Notifications addon (*An lsphp extension the panel built needs a look*);
+a build that failed for the very same lsphp is not retried by itself.
+`snpanel doctor` reports the same (`lsphp-extensions`).
+
+From the command line (root):
+
+```bash
+snpanel-helper lsphp-ext-status 8.4        # each extension: source, loaded, record (JSON)
+snpanel-helper lsphp-ext-build 8.4 ffi     # queue a build (ffi, shmop, mcrypt; imap where packaged)
+snpanel-helper lsphp-ext-log 8.4 ffi       # its log
+snpanel-helper lsphp-ext-remove 8.4 ffi    # ini and module removed, not built again
+snpanel-helper lsphp-ext-check             # what the daily check does
+```
 
 ## build.conf keys
 
