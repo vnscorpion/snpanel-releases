@@ -2,11 +2,63 @@
 
 Tiếng Việt trước, English below.
 
+## v2.2.0
+
+Chưa phát hành (bản thử nghiệm `v2.2.0-rc.N`) / Unreleased (release candidates `v2.2.0-rc.N`).
+
+### Tiếng Việt
+
+**Ubuntu 24.04 hỗ trợ đầy đủ như Debian 13, kể cả LiteSpeed**
+
+- `snpanel build` chạy trên Ubuntu 24.04 (noble): nginx ↔ Apache ↔ LiteSpeed Enterprise theo cùng đường code với Debian (apache2 và `a2enmod`, lsphp từ kho của LiteSpeed cho noble với khoá đã ghim, ModSecurity 2 với CRS đã ghim).
+- Redis 7.0 của Ubuntu: tệp ACL của panel chỉ ghi `client|setinfo` khi máy chủ có lệnh đó (Valkey, Redis 7.2 trở lên). Trước đây redis-server của Ubuntu không khởi động được sau bản cập nhật; bản cập nhật tự khởi động lại máy chủ đã hỏng. `snpanel doctor` báo khi Valkey/Redis bị lỗi.
+- apt trên Ubuntu:
+  - chờ khoá của dpkg và danh sách gói (unattended-upgrades, apt-daily) thay vì thất bại, tới 30 phút;
+  - needrestart chỉ liệt kê, không tự khởi động lại dịch vụ giữa lúc cài hay cập nhật;
+  - trang Cập nhật tách riêng các gói Ubuntu đang hoãn theo "phased updates", không tính là đang chờ;
+  - gói PHP của panel cho các phiên bản đang dùng được đánh dấu cài tay, `apt autoremove` không gỡ được (trên Ubuntu, phpMyAdmin kéo `php8.3-*` vào như gói tự động).
+- `update.sh`: hàm `apt_get` chưa từng được định nghĩa (cảnh báo "could not install php8.5-mysql").
+
+### English
+
+**Ubuntu 24.04 supported as fully as Debian 13, LiteSpeed included**
+
+- `snpanel build` runs on Ubuntu 24.04 (noble): nginx ↔ Apache ↔ LiteSpeed Enterprise on Debian's code path (apache2 with `a2enmod`, lsphp from LiteSpeed's noble repository with its pinned key, ModSecurity 2 with the pinned CRS).
+- Ubuntu's Redis 7.0: the panel's ACL file names `client|setinfo` only where the server has it (Valkey, Redis 7.2 and later). Ubuntu's redis-server used to fail to start after the update; the update now starts a failed server again. `snpanel doctor` reports a failed Valkey/Redis.
+- apt on Ubuntu:
+  - the dpkg and package-list locks (unattended-upgrades, apt-daily) are waited out, up to 30 minutes, instead of failing;
+  - needrestart only lists; it never restarts a service in the middle of an install or an update;
+  - the Updates page lists Ubuntu's phased updates apart and does not count them as pending;
+  - the panel's PHP packages of the versions in use are marked as installed by hand, so `apt autoremove` cannot take them (on Ubuntu, phpMyAdmin pulled `php8.3-*` in as automatic).
+- `update.sh`: its `apt_get` was never defined (the "could not install php8.5-mysql" warning).
+
 ## v2.1.0
 
 Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release candidates `v2.1.0-rc.N`).
 
 ### Tiếng Việt
+
+**Kiểm thử mọi quy trình trên Debian 13 và ranh giới bảo mật (rc.5)**
+
+- Debian 13 chạy đầy đủ, kể cả LiteSpeed: đã kiểm trên máy thật nginx ↔ LiteSpeed/Apache, ứng dụng Docker/Node, sao lưu và khôi phục tài khoản.
+- Ranh giới bảo mật giữa tài khoản `snpanel` (API) và root:
+  - mã panel (`/opt/snpanel`) và cấu hình web server thuộc root, mọi vhost nginx do helper ghi;
+  - trạng thái của root nằm trong thư mục của root: `/var/lib/snpanel-root` (trạng thái cập nhật, snapshot DB), `/var/lib/snpanel-firewall`, `/var/lib/snpanel-mysql-governor`, `/var/lib/snpanel-apps` (file compose). Bản cập nhật tự chuyển dữ liệu cũ sang.
+- Root không còn thao tác theo đường dẫn trong thư mục của tài khoản khác: tạo, làm rỗng, chuyển và xoá thư mục website, file của job quét mã độc, thư mục tạm upload đều đi qua file descriptor và không theo symlink.
+- Khôi phục tài khoản:
+  - không lấy vai trò từ bản sao lưu (luôn là khách hàng);
+  - không nhận website, tên miền phụ hay tên miền con của tài khoản khác;
+  - mail và DNS chỉ cho tên miền của chính tài khoản;
+  - website ứng dụng được trỏ lại ứng dụng của nó.
+- Ứng dụng Docker Compose:
+  - file compose do helper dựng từ mô tả có kiểu, không có YAML nào tới root;
+  - thư mục bind thuộc tài khoản và được quét setuid/setgid/capability;
+  - dịch vụ chạy trong slice của tài khoản (giới hạn CPU, RAM);
+  - bản cập nhật dựng lại mọi ứng dụng và dừng ứng dụng không dựng lại được;
+  - tên ứng dụng trùng tên hệ thống với ứng dụng của tài khoản khác bị từ chối.
+- Sao lưu website và ứng dụng chạy bằng tài khoản (`--sparse`, giới hạn theo dung lượng trống). Khôi phục giải nén vào thư mục bên cạnh rồi mới thay, nên lỗi giữa chừng giữ nguyên site.
+- PHP: cập nhật không tự cài phiên bản PHP quản trị viên không cài (ghim apt). `snpanel doctor` báo phiên bản bị ghim nhưng vẫn còn cài.
+- Helper: không chạy yêu cầu mà panel đã bỏ; không chạy lại qua sudo một yêu cầu đã gửi.
 
 **Debian 13: LiteSpeed Enterprise và Apache qua `snpanel build`**
 
@@ -61,6 +113,28 @@ Chưa phát hành (bản thử nghiệm `v2.1.0-rc.N`) / Unreleased (release can
 - Trên Debian, Valkey của panel là gói `redis-server` (Redis 8.0) của Debian.
 
 ### English
+
+**Every process tested on Debian 13, and the security boundary (rc.5)**
+
+- Debian 13 in full, LiteSpeed included: checked on real servers nginx ↔ LiteSpeed/Apache, Docker/Node applications, account backup and restore.
+- The security boundary between the panel's `snpanel` account (the API) and root:
+  - the panel's code (`/opt/snpanel`) and the web servers' configuration are root's, and every nginx vhost is written by the helper;
+  - root's state lives in root's folders: `/var/lib/snpanel-root` (update status, database snapshots), `/var/lib/snpanel-firewall`, `/var/lib/snpanel-mysql-governor`, `/var/lib/snpanel-apps` (compose files). The update moves the old state there.
+- Root no longer acts by path inside another account's folders: making, emptying, moving and removing a website's folder, the malware scan job files and the upload staging folder go through file descriptors and follow no link.
+- Account restore:
+  - never takes the role from the archive (a customer, always);
+  - never takes another account's website, alias or subdomain;
+  - puts mail and DNS back only for the account's own domains;
+  - points application sites at their applications again.
+- Docker Compose applications:
+  - the compose file is rendered by the helper from typed services, so no YAML reaches root;
+  - bind folders are the account's and are swept for setuid/setgid/capability files;
+  - services run in the account's slice (its CPU and memory limits);
+  - the update re-renders every application and stops one it cannot;
+  - an application name that shares its system names with another account's is refused.
+- Website and application backups run as the account (`--sparse`, capped by the free space). A restore unpacks beside the site and swaps it in, so a failed restore leaves the site as it was.
+- PHP: an update never installs a PHP version the administrator did not (apt pin). `snpanel doctor` reports a pinned-out version that is still installed.
+- Helper: a request the panel gave up on is not run; a request already sent is never run again through sudo.
 
 **Debian 13: LiteSpeed Enterprise and Apache through `snpanel build`**
 
