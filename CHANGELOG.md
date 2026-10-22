@@ -20,6 +20,7 @@ Chưa phát hành (bản thử nghiệm `v2.2.0-rc.N`) / Unreleased (release can
 - `update.sh`: hàm `apt_get` chưa từng được định nghĩa (cảnh báo "could not install php8.5-mysql").
 - LiteSpeed trên Ubuntu: phpMyAdmin 5.2.1 của Ubuntu cần include path `/usr/share/php`; dưới lsphp panel đặt đường dẫn đó (trước đây mọi trang phpMyAdmin trả 500 và bước cutover dừng lại).
 - ClamAV 1.5 của Ubuntu (bật `FIPSCryptoHashLimits`): cơ sở dữ liệu đã lọc của Malware Scanner giữ các chữ ký `.cvd.sign`; trước đây clamd không khởi động được.
+- ClamAV của Ubuntu tắt lệnh RELOAD qua socket (`EnableReloadCommand false`): panel nạp lại cơ sở dữ liệu bằng `systemctl reload` (SIGUSR2); trước đây mỗi lần cập nhật chữ ký đều bị quay lui. clamd bị lỗi được khởi động lại khi có bản dựng tốt.
 - Sau mỗi lần cập nhật hệ điều hành (nút "Cập nhật ngay", unattended-upgrades hay `apt upgrade` của quản trị viên), các master PHP-FPM của từng tài khoản được reload sang `php-fpm` mới; trước đây chúng vẫn chạy bản cũ đã bị thay (cả trên Debian). Lệnh helper mới `fpm-reload-stale`, hook apt `/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`.
 - Chuyển stack (nginx ↔ Apache ↔ LiteSpeed):
   - chú thích có giờ mà LiteSpeed Cache và Redis Object Cache ghi sau `</html>` không còn bị tính là khác biệt;
@@ -44,6 +45,7 @@ Chưa phát hành (bản thử nghiệm `v2.2.0-rc.N`) / Unreleased (release can
 - `update.sh`: its `apt_get` was never defined (the "could not install php8.5-mysql" warning).
 - LiteSpeed on Ubuntu: Ubuntu's phpMyAdmin 5.2.1 needs `/usr/share/php` on the include path; under lsphp the panel sets it (every phpMyAdmin page answered 500 before, and the cutover stopped there).
 - Ubuntu's ClamAV 1.5 (with `FIPSCryptoHashLimits` on): the Malware Scanner's filtered database keeps the `.cvd.sign` signatures; clamd failed to start before.
+- Ubuntu's ClamAV turns the socket's RELOAD command off (`EnableReloadCommand false`): the panel reloads the database with `systemctl reload` (SIGUSR2); every signature update rolled back before. A failed clamd is started again on the next good build.
 - After every OS update ("Update now", unattended-upgrades or an administrator's own `apt upgrade`), the per-account PHP-FPM masters are reloaded onto the new `php-fpm`; they kept running the replaced binary before (Debian too). New helper op `fpm-reload-stale`, apt hook `/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`.
 - Stack switches (nginx ↔ Apache ↔ LiteSpeed):
   - the timestamp comments LiteSpeed Cache and Redis Object Cache write after `</html>` are no longer counted as differences;
