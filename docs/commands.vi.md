@@ -853,7 +853,7 @@ snpanel build live             # stack LiteSpeed: ai trả 80/443, giấy phép
 | Fail2ban (addon) | `/var/log/fail2ban.log` |
 | MariaDB | `journalctl -u mariadb` |
 | PHP-FPM của một tài khoản | `journalctl -u snpanel-php-fpm-<user>-<phiên bản>` |
-| Tường lửa | `nft list table inet snpanel`; luật: `/var/lib/snpanel/firewall/rules.tsv` |
+| Tường lửa | `nft list table inet snpanel`; luật: `/var/lib/snpanel-firewall/rules.tsv` |
 
 ### 7.4 Sự cố thường gặp
 
@@ -944,7 +944,7 @@ snpanel reset-admin-2fa             # tắt ứng dụng xác thực và mọi p
 ### 8.4 Tường lửa
 
 Tường lửa của panel là bảng nftables `inet snpanel`, luật nằm trong
-`/var/lib/snpanel/firewall/rules.tsv`. Cổng SSH, cổng panel và 80, 443, 465,
+`/var/lib/snpanel-firewall/rules.tsv`. Cổng SSH, cổng panel và 80, 443, 465,
 587 luôn mở.
 
 ```bash

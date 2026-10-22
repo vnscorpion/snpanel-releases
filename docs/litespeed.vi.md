@@ -143,6 +143,14 @@ snpanel build retry bj-xxxxxxxxxxxx  # chạy lại từ bước bị dừng
 - Khác biệt đó là bình thường thì chạy tiếp bằng
   `snpanel build retry <job> --accept-diffs`. Lệnh này không bao giờ cho qua
   một site sẽ lộ mã nguồn PHP.
+- Phần so sánh đọc `.htaccess` của từng thư mục để tìm thư mục mà server hiện
+  tại đóng (mật khẩu hoặc deny) còn nginx — vốn không đọc `.htaccess` — sẽ để
+  mở. Nhưng nó **không** đọc các `.htaccess` nằm trong cây mã nguồn của
+  WordPress (`wp-content/plugins`, `wp-content/themes`, `wp-content/mu-plugins`).
+  `.htaccess` của một plugin hay theme (Akismet có sẵn một cái) đóng thư mục đó
+  trên Apache và LiteSpeed nhưng chưa bao giờ đóng trên nginx, nên đó không
+  phải khác biệt do việc chuyển gây ra. Mọi thư mục khác, kể cả
+  `wp-content/uploads`, đều được đọc.
 
 ## 5. Kiểm tra
 

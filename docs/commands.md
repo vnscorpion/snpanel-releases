@@ -844,7 +844,7 @@ snpanel build live             # LiteSpeed stack: who serves 80/443, the licence
 | Fail2ban (addon) | `/var/log/fail2ban.log` |
 | MariaDB | `journalctl -u mariadb` |
 | An account's PHP-FPM | `journalctl -u snpanel-php-fpm-<user>-<version>` |
-| The firewall | `nft list table inet snpanel`; rules: `/var/lib/snpanel/firewall/rules.tsv` |
+| The firewall | `nft list table inet snpanel`; rules: `/var/lib/snpanel-firewall/rules.tsv` |
 
 ### 7.4 Common problems
 
@@ -933,7 +933,7 @@ snpanel reset-admin-2fa             # authenticator app and every passkey off
 ### 8.4 Firewall
 
 The panel's firewall is the nftables table `inet snpanel`, with its rules in
-`/var/lib/snpanel/firewall/rules.tsv`. The SSH port, the panel port and 80,
+`/var/lib/snpanel-firewall/rules.tsv`. The SSH port, the panel port and 80,
 443, 465 and 587 are always open.
 
 ```bash

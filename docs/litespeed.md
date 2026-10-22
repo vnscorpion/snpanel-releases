@@ -146,6 +146,14 @@ snpanel build retry bj-xxxxxxxxxxxx  # run again from the step that stopped
 - If the differences are expected, go on with
   `snpanel build retry <job> --accept-diffs`. This never goes past a site
   that would serve PHP source.
+- The compare reads a folder's `.htaccess` to find one the current server
+  closes (a password or a deny) that nginx, which reads no `.htaccess`, would
+  leave open — but it does **not** read the ones inside WordPress's own code
+  trees (`wp-content/plugins`, `wp-content/themes`, `wp-content/mu-plugins`).
+  A plugin's or a theme's own `.htaccess` (Akismet ships one) closes its
+  folder on Apache and LiteSpeed but never did on nginx, so it is not a
+  difference the move introduces. Every other folder, `wp-content/uploads`
+  included, is read.
 
 ## 5. Check
 
