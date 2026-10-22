@@ -16,11 +16,11 @@ Everything below runs as root over SSH. The panel's
 
 ## Before you start
 
-- **AlmaLinux 10 or Debian 13.**
+- **AlmaLinux 10, Debian 13 or Ubuntu 24.04.**
   - Rocky Linux and RHEL 10 take AlmaLinux's path. Debian 12 takes Debian
-    13's but has not been tested on a real server.
-  - On Ubuntu, `snpanel build` refuses LiteSpeed for now, and those servers
-    stay on nginx.
+    13's but has not been tested on a real server. Ubuntu 24.04 takes
+    Debian's, with the differences in
+    [Ubuntu 24.04: what differs](#ubuntu-2404-what-differs).
   - CloudLinux is not supported by this path.
 - **Disk and memory.** At least 5 GB free on `/`. With less than 4 GB of RAM,
   add a 2 GB swap file first.
@@ -30,7 +30,7 @@ Everything below runs as root over SSH. The panel's
 - **Where lsphp comes from.**
   - AlmaLinux: Remi's PHP repository must be configured (the installer does
     that).
-  - Debian: the update step adds LiteSpeed's own apt repository
+  - Debian and Ubuntu: the update step adds LiteSpeed's own apt repository
     (`rpms.litespeedtech.com/debian`), its signing key shipped with the panel
     and pinned; lsphp is the `lsphpXY` packages.
   - Every PHP version a site uses must be installed.
@@ -294,10 +294,48 @@ The commands are the same. Under the hood:
   new trial. A key that is not valid stops the install; no other trial is
   asked for.
 
+## Ubuntu 24.04: what differs
+
+The commands are the same, and the layout is Debian's (the table above:
+`apache2` with `a2enmod`, `www-data`, `/var/log/apache2`, LiteSpeed's
+`lsphpXY` packages - from its `noble` suite -, `libapache2-mod-security2`,
+nginx removed but not purged). What Ubuntu does its own way:
+
+- **PHP-FPM** comes from Ondřej Surý's PPA. Ubuntu's own `php-defaults` is
+  PHP 8.3, so phpMyAdmin and Composer pull PHP 8.3's packages in first, as
+  dependencies: the panel marks the ones it uses as installed by hand, so
+  `apt autoremove` never takes them, and pins out every PHP version you did
+  not install (the PPA's `php-*` metapackages want 8.5).
+- **Redis, not Valkey.** Ubuntu 24.04 ships Redis 7.0, which has no
+  `CLIENT SETINFO`; the panel's ACL file leaves that command out there.
+- **phpMyAdmin** is Ubuntu's 5.2.1 package, which finds its libraries through
+  PHP's include path (`/usr/share/php`); under LiteSpeed the panel sets that
+  path for phpMyAdmin.
+- **AppArmor** stays on, with `kernel.apparmor_restrict_unprivileged_userns =
+  1` (Ubuntu's switch for user namespaces). LiteSpeed, lsphp with suEXEC, the
+  jailed terminal and Docker containers (profile `docker-default`) work under
+  it; LiteSpeed Containers stay off.
+- **apt.** needrestart only lists during the panel's installs, builds and
+  updates; the panel waits for unattended-upgrades and apt's daily refresh
+  instead of failing; after any package upgrade, apt's hook
+  (`/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`) moves the per-account
+  PHP-FPM masters onto the new `php-fpm`. Ubuntu's phased updates are listed
+  apart on the Updates page.
+- **ClamAV 1.5** (Ubuntu's `clamav-daemon` turns `FIPSCryptoHashLimits` on):
+  the Malware Scanner's filtered database keeps the `.cvd.sign` signatures
+  clamd then needs.
+- **lsphp extensions.** LiteSpeed's `noble` suite has no `lsphpXY-ffi`,
+  `-shmop` or `-mcrypt`: the panel builds them as on Debian (below).
+  `lsphpXY-imap` is packaged for noble, so IMAP comes from LiteSpeed.
+- A WordPress with LiteSpeed Cache or the object cache writes a timestamp
+  comment after `</html>`; the switch between stacks no longer counts it as
+  a difference.
+
 ### lsphp extensions LiteSpeed does not package
 
-LiteSpeed's Debian repository (bookworm and trixie) has no `lsphpXY-ffi`,
-`lsphpXY-shmop` or `lsphpXY-mcrypt`, and trixie has no `lsphpXY-imap` either.
+LiteSpeed's Debian repository (bookworm, trixie and Ubuntu's noble) has no
+`lsphpXY-ffi`, `lsphpXY-shmop` or `lsphpXY-mcrypt`, and trixie has no
+`lsphpXY-imap` either.
 On **Web Server & PHP > PHP**, a LiteSpeed server shows a card for the
 chosen version, *lsphp X.Y: extensions LiteSpeed does not package*, with
 each one's state (not built, building and its step, built and loaded, build
@@ -305,12 +343,12 @@ failed with its log, not offered and why), **Build and enable**, **Remove**
 and **Build log**. Administrators only; every build and removal is in the
 audit log.
 
-| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 |
-|---|---|---|---|
-| ffi | Remi's `phpXY-php-ffi` | built | built |
-| shmop | Remi's `phpXY-php-process` | built | built |
-| mcrypt | Remi's `phpXY-php-pecl-mcrypt` | built (PECL 1.0.9, PHP 7.2 to 8.5) | built (PECL 1.0.9, PHP 7.2 to 8.5) |
-| imap | Remi's `phpXY-php-imap` (8.4: `pecl-imap`) | LiteSpeed's `lsphpXY-imap` package | **not offered** |
+| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 | Ubuntu 24.04 |
+|---|---|---|---|---|
+| ffi | Remi's `phpXY-php-ffi` | built | built | built |
+| shmop | Remi's `phpXY-php-process` | built | built | built |
+| mcrypt | Remi's `phpXY-php-pecl-mcrypt` | built (PECL 1.0.9, PHP 7.2 to 8.5) | built (PECL 1.0.9, PHP 7.2 to 8.5) | built (PECL 1.0.9, PHP 7.2 to 8.5) |
+| imap | Remi's `phpXY-php-imap` (8.4: `pecl-imap`) | LiteSpeed's `lsphpXY-imap` package | **not offered** | LiteSpeed's `lsphpXY-imap` package |
 
 On AlmaLinux nothing is built: lsphp is Remi's and shares PHP-FPM's
 `php.d`, so the page only names the Remi package of one lsphp does not

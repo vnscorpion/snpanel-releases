@@ -18,6 +18,17 @@ Chưa phát hành (bản thử nghiệm `v2.2.0-rc.N`) / Unreleased (release can
   - trang Cập nhật tách riêng các gói Ubuntu đang hoãn theo "phased updates", không tính là đang chờ;
   - gói PHP của panel cho các phiên bản đang dùng được đánh dấu cài tay, `apt autoremove` không gỡ được (trên Ubuntu, phpMyAdmin kéo `php8.3-*` vào như gói tự động).
 - `update.sh`: hàm `apt_get` chưa từng được định nghĩa (cảnh báo "could not install php8.5-mysql").
+- LiteSpeed trên Ubuntu: phpMyAdmin 5.2.1 của Ubuntu cần include path `/usr/share/php`; dưới lsphp panel đặt đường dẫn đó (trước đây mọi trang phpMyAdmin trả 500 và bước cutover dừng lại).
+- ClamAV 1.5 của Ubuntu (bật `FIPSCryptoHashLimits`): cơ sở dữ liệu đã lọc của Malware Scanner giữ các chữ ký `.cvd.sign`; trước đây clamd không khởi động được.
+- Sau mỗi lần cập nhật hệ điều hành (nút "Cập nhật ngay", unattended-upgrades hay `apt upgrade` của quản trị viên), các master PHP-FPM của từng tài khoản được reload sang `php-fpm` mới; trước đây chúng vẫn chạy bản cũ đã bị thay (cả trên Debian). Lệnh helper mới `fpm-reload-stale`, hook apt `/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`.
+- Chuyển stack (nginx ↔ Apache ↔ LiteSpeed):
+  - chú thích có giờ mà LiteSpeed Cache và Redis Object Cache ghi sau `</html>` không còn bị tính là khác biệt;
+  - trang tự thay đổi theo thời gian được hỏi lại trên cổng riêng của máy chủ trước khi bị coi là lỗi;
+  - trang không trả lời một lần (máy nhỏ, tài khoản bị giới hạn CPU) được hỏi lại một lần trước khi quay lui.
+- Cài mới: thư mục giao diện `/opt/snpanel/frontend` không còn bị giao cho tài khoản `snpanel` (bảo mật: tài khoản của API có thể thay trang quản trị cho tới lần cập nhật đầu); mật khẩu admin do trình cài tạo không còn bị in ra log.
+- Xoá một URL blocklist IP thì các mạng của nó được gỡ khỏi tập nftables ngay, không đợi lần làm mới hằng ngày.
+- fail2ban trên Ubuntu: các jail đọc file log (đăng nhập WordPress, thư mục có mật khẩu, recidive, WebAdmin) ghi rõ `backend = auto`; gói fail2ban của Ubuntu đặt `backend = systemd` mặc định nên trước đây các jail đó không theo dõi gì.
+- Bảo mật (rà soát của vòng này): tài khoản `snpanel` không còn làm root treo bằng một FIFO đặt ở chỗ của file `.env` hay file trạng thái cập nhật; hook apt có giới hạn thời gian; cửa sổ ổn định khi chuyển stack chặn mã nguồn PHP bị trả về ở bất kỳ đường dẫn nào.
 
 ### English
 
@@ -31,6 +42,17 @@ Chưa phát hành (bản thử nghiệm `v2.2.0-rc.N`) / Unreleased (release can
   - the Updates page lists Ubuntu's phased updates apart and does not count them as pending;
   - the panel's PHP packages of the versions in use are marked as installed by hand, so `apt autoremove` cannot take them (on Ubuntu, phpMyAdmin pulled `php8.3-*` in as automatic).
 - `update.sh`: its `apt_get` was never defined (the "could not install php8.5-mysql" warning).
+- LiteSpeed on Ubuntu: Ubuntu's phpMyAdmin 5.2.1 needs `/usr/share/php` on the include path; under lsphp the panel sets it (every phpMyAdmin page answered 500 before, and the cutover stopped there).
+- Ubuntu's ClamAV 1.5 (with `FIPSCryptoHashLimits` on): the Malware Scanner's filtered database keeps the `.cvd.sign` signatures; clamd failed to start before.
+- After every OS update ("Update now", unattended-upgrades or an administrator's own `apt upgrade`), the per-account PHP-FPM masters are reloaded onto the new `php-fpm`; they kept running the replaced binary before (Debian too). New helper op `fpm-reload-stale`, apt hook `/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`.
+- Stack switches (nginx ↔ Apache ↔ LiteSpeed):
+  - the timestamp comments LiteSpeed Cache and Redis Object Cache write after `</html>` are no longer counted as differences;
+  - a page that changes with time is asked again on the server's own port before it counts as a failure;
+  - a page that did not answer once (a small server, an account held to its CPU limit) is asked once more before the switch rolls back.
+- Fresh install: `/opt/snpanel/frontend` is no longer given to the `snpanel` account (security: the API's account could replace the admin interface until the first update); the installer's admin password is no longer printed in the log.
+- Removing an IP blocklist URL takes its networks out of the nftables sets at once, not at the next daily refresh.
+- fail2ban on Ubuntu: the jails that read log files (WordPress logins, password folders, recidive, WebAdmin) say `backend = auto`; Ubuntu's fail2ban package sets `backend = systemd` by default, so those jails watched nothing before.
+- Security (this round's review): the `snpanel` account can no longer make root hang with a FIFO in place of the `.env` or the update status file; apt's hook is time-limited; the stability window of a stack switch catches PHP source served on any path.
 
 ## v2.1.0
 

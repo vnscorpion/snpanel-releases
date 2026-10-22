@@ -38,7 +38,7 @@ Mọi lệnh chạy bằng **root** qua SSH, trừ khi có ghi chú khác. Phầ
 | Rocky Linux 10, RHEL 10 | Trình cài và `snpanel build` chấp nhận, nhưng chưa kiểm thử như AlmaLinux. | như AlmaLinux |
 | Oracle Linux 10, CentOS Stream 10 | Trình cài chấp nhận, chưa kiểm thử. `snpanel build` từ chối. | nginx |
 | **Debian 13** | **Hỗ trợ** (từ v2.1.0), đã thử trên máy thật: cài đặt, và `snpanel build` sang LiteSpeed Enterprise (Apache dự phòng) hoặc chỉ Apache, rồi quay lại. Ở v2.0.0, `snpanel build` từ chối hệ này. | như AlmaLinux |
-| Ubuntu 24.04 LTS | Cài và chạy được với nginx; kiểm thử ít hơn AlmaLinux. `snpanel build` từ chối ("Ubuntu comes later"). | nginx |
+| **Ubuntu 24.04 LTS** | **Hỗ trợ** (từ v2.2.0), đã thử trên máy thật: cài mới, nâng cấp từ 1.1.0, và `snpanel build` sang LiteSpeed Enterprise (Apache dự phòng) hoặc chỉ Apache, rồi quay lại. Đến v2.1.0, `snpanel build` từ chối hệ này. | như AlmaLinux |
 | Debian 12 | Trình cài và `snpanel build` chấp nhận (cùng đường code với Debian 13), chưa thử trên máy thật. Mặc định PHP 8.3 và 8.2. | như Debian 13 |
 | Ubuntu 26.04 và các hệ khác | Trình cài từ chối. | - |
 | CloudLinux | Không dùng các lệnh này: `snpanel build` từ chối. | - |
@@ -423,10 +423,10 @@ về nginx - theo kiểu CustomBuild của DirectAdmin:
    `/etc/snpanel/build.conf`. Lệnh kiểm tra giá trị và không cài gì.
 2. Một job build (`all`, hoặc một bước) đưa máy về đúng khai báo.
 
-Build từ chối Ubuntu ("Ubuntu comes later") và CloudLinux; các máy đó giữ
-nginx. (v2.0.0 từ chối cả Debian.) Những gì Debian làm theo cách riêng dưới
-cùng các lệnh này có ở
-[litespeed.vi.md](litespeed.vi.md#debian-13-nhung-gi-khac). Trang **Máy chủ > Máy chủ web & PHP** của
+Build từ chối CloudLinux; các máy đó giữ nginx. (v2.0.0 từ chối Debian, v2.1.0
+từ chối Ubuntu.) Những gì Debian và Ubuntu làm theo cách riêng dưới cùng các
+lệnh này có ở [litespeed.vi.md](litespeed.vi.md#debian-13-nhung-gi-khac) và
+[litespeed.vi.md](litespeed.vi.md#ubuntu-2404-nhung-gi-khac). Trang **Máy chủ > Máy chủ web & PHP** của
 panel làm được những việc này bằng nút bấm. Hướng dẫn chi tiết hơn ở
 [litespeed.vi.md](litespeed.vi.md).
 
@@ -513,8 +513,8 @@ lsws_auto_return = yes (applied: the watchdog reads it on its next look)
 
 **Trước khi bắt đầu:**
 
-- AlmaLinux 10 (hoặc Rocky Linux, RHEL 10) hoặc Debian 13 (hoặc 12), không
-  phải Ubuntu, không phải CloudLinux.
+- AlmaLinux 10 (hoặc Rocky Linux, RHEL 10), Debian 13 (hoặc 12) hoặc Ubuntu
+  24.04, không phải CloudLinux.
 - 2 GB RAM (xem [Phần cứng](#phan-cung)); dưới 4 GB thì thêm file swap 2 GB.
 - Trống 5 GB trên `/`.
 - Máy kết nối được tới `license.litespeedtech.com`.

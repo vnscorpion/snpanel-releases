@@ -37,7 +37,7 @@ one.
 | Rocky Linux 10, RHEL 10 | Accepted by the installer and by `snpanel build`, but not tested like AlmaLinux. | as AlmaLinux |
 | Oracle Linux 10, CentOS Stream 10 | Accepted by the installer, untested. `snpanel build` refuses them. | nginx |
 | **Debian 13** | **Supported** (from v2.1.0), tested on real servers: the install, and `snpanel build` to LiteSpeed Enterprise (Apache as the standby) or Apache alone, and back. In v2.0.0 `snpanel build` refused it. | as AlmaLinux |
-| Ubuntu 24.04 LTS | Installs and runs with nginx; tested less than AlmaLinux. `snpanel build` refuses it ("Ubuntu comes later"). | nginx |
+| **Ubuntu 24.04 LTS** | **Supported** (from v2.2.0), tested on real servers: a fresh install, an upgrade from 1.1.0, and `snpanel build` to LiteSpeed Enterprise (Apache as the standby) or Apache alone, and back. Until v2.1.0 `snpanel build` refused it. | as AlmaLinux |
 | Debian 12 | Accepted by the installer and by `snpanel build` (Debian 13's code path), not tested on a real server. PHP 8.3 and 8.2 by default. | as Debian 13 |
 | Ubuntu 26.04 and anything else | Refused by the installer. | - |
 | CloudLinux | Not by these commands: `snpanel build` refuses it. | - |
@@ -419,10 +419,10 @@ back to nginx - the way DirectAdmin's CustomBuild does it:
    `/etc/snpanel/build.conf`. It checks the value and installs nothing.
 2. A build job (`all`, or one step) makes the server match the declaration.
 
-The build refuses Ubuntu ("Ubuntu comes later") and CloudLinux; those
-servers stay on nginx. (v2.0.0 refused Debian too.) What Debian does its own
-way under the same commands is in
-[litespeed.md](litespeed.md#debian-13-what-differs). The panel's
+The build refuses CloudLinux; those servers stay on nginx. (v2.0.0 refused
+Debian, and v2.1.0 Ubuntu.) What Debian and Ubuntu do their own way under the
+same commands is in [litespeed.md](litespeed.md#debian-13-what-differs) and
+[litespeed.md](litespeed.md#ubuntu-2404-what-differs). The panel's
 **Server > Web server & PHP** page does the same with buttons. A walkthrough
 with more background is in [litespeed.md](litespeed.md).
 
@@ -508,8 +508,8 @@ lsws_auto_return = yes (applied: the watchdog reads it on its next look)
 
 **Before you start:**
 
-- AlmaLinux 10 (or Rocky Linux or RHEL 10) or Debian 13 (or 12), not
-  Ubuntu, not CloudLinux.
+- AlmaLinux 10 (or Rocky Linux or RHEL 10), Debian 13 (or 12) or Ubuntu
+  24.04, not CloudLinux.
 - 2 GB of RAM (see [Hardware](#hardware)); add a 2 GB swap file below 4 GB.
 - 5 GB free on `/`.
 - The server reaches `license.litespeedtech.com`.

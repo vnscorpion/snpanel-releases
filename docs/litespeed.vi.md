@@ -16,11 +16,11 @@ của panel làm được những việc này bằng nút bấm.
 
 ## Trước khi bắt đầu
 
-- **AlmaLinux 10 hoặc Debian 13.**
+- **AlmaLinux 10, Debian 13 hoặc Ubuntu 24.04.**
   - Rocky Linux và RHEL 10 đi đường của AlmaLinux. Debian 12 đi đường của
-    Debian 13 nhưng chưa được thử trên máy thật.
-  - Trên Ubuntu, `snpanel build` tạm thời từ chối LiteSpeed; các máy đó dùng
-    nginx.
+    Debian 13 nhưng chưa được thử trên máy thật. Ubuntu 24.04 đi đường của
+    Debian, với những khác biệt ở
+    [Ubuntu 24.04: những gì khác](#ubuntu-2404-nhung-gi-khac).
   - Đường này không hỗ trợ CloudLinux.
 - **Đĩa và RAM.** Trống ít nhất 5 GB trên `/`. RAM dưới 4 GB thì nên thêm
   swap 2 GB trước.
@@ -29,7 +29,7 @@ của panel làm được những việc này bằng nút bấm.
   9080/9443 (LiteSpeed).
 - **lsphp lấy từ đâu.**
   - AlmaLinux: kho PHP Remi phải đã cấu hình (trình cài làm việc này).
-  - Debian: bước update thêm kho apt của chính LiteSpeed
+  - Debian và Ubuntu: bước update thêm kho apt của chính LiteSpeed
     (`rpms.litespeedtech.com/debian`), khoá ký kèm theo panel và được ghim;
     lsphp là các gói `lsphpXY`.
   - Mọi phiên bản PHP mà site đang dùng phải đã cài.
@@ -291,11 +291,50 @@ Các lệnh giống hệt. Bên dưới thì khác:
   webserver cài LiteSpeed bằng key đó và không xin trial mới. Key không hợp lệ
   thì bước cài dừng lại; không có trial nào khác được xin.
 
+<a id="ubuntu-2404-nhung-gi-khac"></a>
+
+## Ubuntu 24.04: những gì khác
+
+Các lệnh giống hệt, và bố cục là của Debian (bảng trên: `apache2` với
+`a2enmod`, `www-data`, `/var/log/apache2`, các gói `lsphpXY` của LiteSpeed -
+từ suite `noble` -, `libapache2-mod-security2`, nginx được gỡ nhưng không
+purge). Những gì Ubuntu làm theo cách riêng:
+
+- **PHP-FPM** lấy từ PPA của Ondřej Surý. `php-defaults` của chính Ubuntu là
+  PHP 8.3, nên phpMyAdmin và Composer kéo các gói PHP 8.3 vào trước, như gói
+  phụ thuộc: panel đánh dấu các gói nó dùng là cài tay, để `apt autoremove`
+  không bao giờ gỡ chúng, và ghim loại mọi phiên bản PHP bạn không cài (các
+  gói `php-*` của PPA muốn 8.5).
+- **Redis, không phải Valkey.** Ubuntu 24.04 có Redis 7.0, không có lệnh
+  `CLIENT SETINFO`; tệp ACL của panel bỏ lệnh đó ra trên hệ này.
+- **phpMyAdmin** là gói 5.2.1 của Ubuntu, tìm thư viện qua include path của
+  PHP (`/usr/share/php`); dưới LiteSpeed, panel đặt đường dẫn đó cho
+  phpMyAdmin.
+- **AppArmor** vẫn bật, với `kernel.apparmor_restrict_unprivileged_userns = 1`
+  (công tắc user namespace của Ubuntu). LiteSpeed, lsphp với suEXEC, terminal
+  bị cô lập và container Docker (profile `docker-default`) chạy bình thường;
+  LiteSpeed Containers vẫn tắt.
+- **apt.** needrestart chỉ liệt kê trong lúc panel cài, build và cập nhật;
+  panel chờ unattended-upgrades và lần làm mới hằng ngày của apt thay vì thất
+  bại; sau mỗi lần nâng cấp gói, hook của apt
+  (`/etc/apt/apt.conf.d/80snpanel-php-fpm-reload`) chuyển các master PHP-FPM
+  của từng tài khoản sang `php-fpm` mới. Các gói Ubuntu hoãn theo "phased
+  updates" được liệt kê riêng ở trang Cập nhật.
+- **ClamAV 1.5** (gói `clamav-daemon` của Ubuntu bật `FIPSCryptoHashLimits`):
+  cơ sở dữ liệu đã lọc của Malware Scanner giữ các chữ ký `.cvd.sign` mà
+  clamd khi đó cần.
+- **Extension lsphp.** Suite `noble` của LiteSpeed không có `lsphpXY-ffi`,
+  `-shmop` hay `-mcrypt`: panel build chúng như trên Debian (xem dưới).
+  `lsphpXY-imap` có gói cho noble, nên IMAP lấy từ LiteSpeed.
+- WordPress có LiteSpeed Cache hay object cache ghi một chú thích có giờ sau
+  `</html>`; việc chuyển giữa các stack không còn tính nó là khác biệt.
+
 <a id="extension-lsphp-ma-litespeed-khong-dong-goi"></a>
 ### Extension lsphp mà LiteSpeed không đóng gói
 
-Kho Debian của LiteSpeed (bookworm và trixie) không có `lsphpXY-ffi`,
-`lsphpXY-shmop` hay `lsphpXY-mcrypt`, và trixie cũng không có `lsphpXY-imap`.
+Kho Debian của LiteSpeed (bookworm, trixie và noble của Ubuntu) không có
+`lsphpXY-ffi`, `lsphpXY-shmop` hay `lsphpXY-mcrypt`, và trixie cũng không có
+`lsphpXY-imap`.
 Ở **Máy chủ web & PHP > PHP**, máy chạy LiteSpeed có thêm thẻ cho phiên bản
 đang chọn, *lsphp X.Y: extension LiteSpeed không đóng gói*, với trạng thái của
 từng extension (chưa build, đang build và đang ở bước nào, đã build và đang
@@ -303,12 +342,12 @@ nạp, build lỗi kèm nhật ký, không có và lý do), nút **Build và b�
 **Nhật ký build**. Chỉ quản trị viên; mọi lần build và gỡ đều vào nhật ký kiểm
 tra.
 
-| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 |
-|---|---|---|---|
-| ffi | gói `phpXY-php-ffi` của Remi | build | build |
-| shmop | gói `phpXY-php-process` của Remi | build | build |
-| mcrypt | gói `phpXY-php-pecl-mcrypt` của Remi | build (PECL 1.0.9, PHP 7.2 đến 8.5) | build (PECL 1.0.9, PHP 7.2 đến 8.5) |
-| imap | gói `phpXY-php-imap` của Remi (8.4: `pecl-imap`) | gói `lsphpXY-imap` của LiteSpeed | **không có** |
+| | AlmaLinux 10 (Remi) | Debian 12 | Debian 13 | Ubuntu 24.04 |
+|---|---|---|---|---|
+| ffi | gói `phpXY-php-ffi` của Remi | build | build | build |
+| shmop | gói `phpXY-php-process` của Remi | build | build | build |
+| mcrypt | gói `phpXY-php-pecl-mcrypt` của Remi | build (PECL 1.0.9, PHP 7.2 đến 8.5) | build (PECL 1.0.9, PHP 7.2 đến 8.5) | build (PECL 1.0.9, PHP 7.2 đến 8.5) |
+| imap | gói `phpXY-php-imap` của Remi (8.4: `pecl-imap`) | gói `lsphpXY-imap` của LiteSpeed | **không có** | gói `lsphpXY-imap` của LiteSpeed |
 
 Trên AlmaLinux không build gì: lsphp là của Remi và dùng chung `php.d` với
 PHP-FPM, nên trang chỉ nêu tên gói Remi của extension mà lsphp chưa nạp. IMAP
